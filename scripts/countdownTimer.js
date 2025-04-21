@@ -6,20 +6,25 @@
  */
 
 async function countdown(seconds) {
-    while (seconds > 0) {
-      console.log(`Time remaining: ${seconds} seconds`);
-      seconds--;
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
-    }
-  
-    // When the timer reaches 0, show an alert
-    const alert = new Alert();
-    alert.title = "Timer Finished";
-    alert.message = "Time's up!";
-    alert.addAction("OK");
-    await alert.present();
+  // When the timer reaches 0, show an alert
+  const alert = new Alert();
+  alert.title = "Timer Starting";
+  alert.message = "Let's Go!!";
+  alert.addAction("OK");
+  await alert.present();
+
+  while (seconds > 0) {
+    console.log(`Time remaining: ${seconds} seconds`);
+    seconds--;
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
   }
-  
-  // Call the countdown function with 10 seconds
- countdown(3);
-  
+
+  // When the timer reaches 0, show an alert
+  alert.title = "Timer Finished";
+  alert.message = "Time's up!";
+  alert.addAction("OK");
+  await alert.present();
+}
+
+// Call the countdown function with 10 seconds
+countdown(3);

@@ -3,7 +3,7 @@
  * Shows a basic alert with the current date and a greeting.
  */
 
-async function main() {
+function main() {
     const date = new Date();
     const message = `Hello from GitHub!\n\nToday is ${date.toDateString()}`;
 

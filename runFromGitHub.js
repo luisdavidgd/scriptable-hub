@@ -23,9 +23,9 @@ async function runFromGitHub({ user, repo, branch, path, debug = false }) {
     }
 
     const asyncWrapper = new Function(`
+      const __runFromLoader__ = true;  // Declare it at the beginning
       return (async () => {
         ${code}
-        const __runFromLoader__ = true;
         if (typeof main === 'function') {
           await main();
         } else {

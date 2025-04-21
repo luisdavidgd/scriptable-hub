@@ -45,7 +45,7 @@ async function runFromGitHub({ user, repo, branch, path, debug = false }) {
 }
 
 await runFromGitHub({
-  user: "yourUsername",
+  user: "luisdavidgd",
   repo: "scriptable-hub",
   branch: "main",
   path: "scripts/helloWorld.js",

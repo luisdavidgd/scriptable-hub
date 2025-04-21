@@ -20,6 +20,7 @@ async function countdown(seconds) {
 }
 
 async function main() {
+  console.log("main function was executed")
   const startAlert = new Alert();
   startAlert.title = "Timer Starting";
   startAlert.message = "Let's Go!!";
@@ -27,6 +28,8 @@ async function main() {
   await startAlert.present();
 
   await countdown(3); // <-- Await the countdown properly
+  console.log("I'm finished!")
 }
 
 main(); // Call the main async function
+console.log("The final, after main function invocation.")

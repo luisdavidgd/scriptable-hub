@@ -1,5 +1,3 @@
-// countdownTimer.js
-
 /**
  * A countdown timer script that counts down from a given number of seconds.
  * Displays an alert when the timer reaches zero.
@@ -20,16 +18,20 @@ async function countdown(seconds) {
 }
 
 async function main() {
-  console.log("main function was executed")
+  console.log("main() was called");
+
   const startAlert = new Alert();
   startAlert.title = "Timer Starting";
   startAlert.message = "Let's Go!!";
   startAlert.addAction("OK");
   await startAlert.present();
 
-  await countdown(3); // <-- Await the countdown properly
-  console.log("I'm finished!")
+  await countdown(3);
+  console.log("Countdown completed.");
 }
 
-main(); // Call the main async function
-console.log("The final, after main function invocation.")
+// Only run main() if not being loaded from external system
+if (typeof __runFromLoader__ === "undefined") {
+  console.log("from countdownTimer.js")
+  main();
+}

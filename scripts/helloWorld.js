@@ -16,5 +16,6 @@ async function main() {
 
 // Only run main() if not already running via external loader
 if (typeof __runFromLoader__ === "undefined") {
+    console.log("from helloWorld.js")
     main();
 }

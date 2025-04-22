@@ -49,11 +49,6 @@ scriptable-hub/
 | weatherWidget.js | Displays current weather using OpenWeather API (requires key).     |
 | ...    | More coming soon!    |
 
-Script | Description
-helloWorld.js | Basic test script to confirm GitHub loading works.
-weatherWidget.js | Displays current weather using OpenWeather API (requires key).
-... | More coming soon!
-```
 ### ✍️ Author
 @luisdavidgd — fan of useful, minimal, and portable scripts.
 

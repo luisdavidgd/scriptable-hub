@@ -1,13 +1,12 @@
-/**
- * A countdown timer script that counts down from a given number of seconds.
- * Displays an alert when the timer reaches zero.
- */
+function delay(ms) {
+  return new Promise(resolve => Timer.schedule(ms / 1000, false, resolve));
+}
 
 async function countdown(seconds) {
   while (seconds > 0) {
     console.log(`Time remaining: ${seconds} seconds`);
     seconds--;
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+    await delay(1000); // Use custom delay
   }
 
   const alert = new Alert();
@@ -18,8 +17,7 @@ async function countdown(seconds) {
 }
 
 async function main() {
-  console.log("main() was called");
-
+  console.log("main function was executed");
   const startAlert = new Alert();
   startAlert.title = "Timer Starting";
   startAlert.message = "Let's Go!!";
@@ -27,11 +25,7 @@ async function main() {
   await startAlert.present();
 
   await countdown(3);
-  console.log("Countdown completed.");
+  console.log("I'm finished!");
 }
 
-// Only run main() if not being loaded from external system
-if (typeof __runFromLoader__ === "undefined") {
-  console.log("from countdownTimer.js")
-  main();
-}
+main();

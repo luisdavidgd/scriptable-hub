@@ -40,5 +40,13 @@ async function showColumnAsList() {
   table.present();
 }
 
-// Call the function to display the list
-await showColumnAsList();
+async function main() {
+  // Call the function to display the list
+  await showColumnAsList();
+}
+
+// Only run main() if not already running via external loader
+if (typeof __runFromLoader__ === "undefined") {
+  console.log("from readCSV.js")
+  main();
+}

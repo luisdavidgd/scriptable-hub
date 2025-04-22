@@ -1,6 +1,6 @@
 // Replace with your actual Sheet ID and GID
-const SHEET_ID = "YOUR_SHEET_ID";
-const GID = "YOUR_GID";
+const SHEET_ID = "1mUimZUbpPU3JXU_vw_o6XEe9DKdQCiJMYx0ZL2bQzA4";
+const GID = "837318860";
 const SEARCH_TERM = "Pikachu"; // Change this to the Pokémon name you want to search for
 
 const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID}`;
@@ -25,4 +25,8 @@ async function main() {
   }
 }
 
-main();
+// Only run main() if not already running via external loader
+if (typeof __runFromLoader__ === "undefined") {
+  console.log("from pokevault.js")
+  main();
+}

@@ -3,7 +3,7 @@ const SHEET_ID = "1mUimZUbpPU3JXU_vw_o6XEe9DKdQCiJMYx0ZL2bQzA4";
 const GID = "837318860";
 const SEARCH_TERM = "Pikachu"; // Change this to the Pokémon name you want to search for
 
-const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID}`;
+const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
 
 async function main() {
   let req = new Request(url);

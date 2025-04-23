@@ -3,8 +3,30 @@ const GID = "837318860";
 
 const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
 
+// Default deck if no input provided
+const defaultDeck = `
+Pokemon
+2 Weedle A2b 1
+2 Kakuna A2b 2
+1 Beedrill ex A2b 3
+1 Pinsir A2b 4
+2 Sprigatito A2b 5
+2 Floragato A2b 6
+1 Meowscarada A2b 7
+2 Buneary A2b 66
+1 Lopunny A2b 67
+
+Supporter
+1 Red A2b 71
+2 Professor’s Research PROMO 7
+
+Item
+1 X Speed PROMO 2
+2 Poké Ball PROMO 5
+`.trim();
+
 // Get deck input from args (via Shortcut or Share Sheet)
-const deckText = args.plainTexts[0];
+const deckText = args.plainTexts?.[0] || defaultDeck;
 if (!deckText) {
     throw new Error("Deck input not found. Paste text or share a note.");
 }

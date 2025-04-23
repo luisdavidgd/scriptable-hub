@@ -1,6 +1,5 @@
 const SHEET_ID = "1mUimZUbpPU3JXU_vw_o6XEe9DKdQCiJMYx0ZL2bQzA4";
 const GID = "837318860";
-
 const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
 
 // Default deck if no input provided
@@ -25,98 +24,101 @@ Item
 2 Poké Ball PROMO 5
 `.trim();
 
-// Get deck input from args (via Shortcut or Share Sheet)
 const deckText = args.plainTexts?.[0] || defaultDeck;
-if (!deckText) {
-    throw new Error("Deck input not found. Paste text or share a note.");
-}
 
-// Parse deck text into card objects
-function parseDeckFromText(text) {
+// Parse deck lines
+function parseDeck(text) {
     const lines = text.split("\n");
     const deck = [];
-    const invalidLines = [];
+    const invalid = [];
 
     for (const line of lines) {
         const trimmed = line.trim();
-        if (!/^\d/.test(trimmed)) continue; // Skip headers or empty lines
+        if (!/^\d/.test(trimmed)) continue;
 
         const parts = trimmed.split(" ");
-        const quantity = parseInt(parts[0]);
+        const qty = parseInt(parts[0]);
         const set = parts[parts.length - 2];
         const number = parts[parts.length - 1];
         const name = parts.slice(1, -2).join(" ");
 
-        if (!quantity || !set || !number || !name) {
-            invalidLines.push(trimmed);
+        if (!qty || !set || !number || !name) {
+            invalid.push(trimmed);
             continue;
         }
 
-        deck.push({ needed: quantity, name, set, number });
+        deck.push({ needed: qty, name, set, number });
     }
 
-    return { deck, invalidLines };
+    return { deck, invalid };
 }
 
-// Read the CSV collection from Google Sheets
-async function readCollection() {
+// Read collection CSV from Google Sheets
+async function getCollection() {
     const req = new Request(url);
     const csv = await req.loadString();
     const rows = csv.trim().split("\n").slice(1).map(r => r.split(","));
 
     const collection = {};
     for (const row of rows) {
-        const quantity = parseInt(row[0]) || 0;
+        const qty = parseInt(row[0]) || 0;
+        const name = row[2];
         const set = row[3];
         const number = row[4];
-        if (!set || !number) continue;
         const key = `${set}-${number}`;
-        collection[key] = quantity;
+        if (!set || !number || !name) continue;
+        collection[key] = { qty, name, set, number };
     }
+
     return collection;
 }
 
-// Compare the deck list with your collection
-function compareDeckWithCollection(deckList, collection) {
+// Compare deck vs collection with suggestions
+function compare(deck, collection) {
     const missing = [];
 
-    for (const card of deckList) {
+    for (const card of deck) {
         const key = `${card.set}-${card.number}`;
-        const owned = collection[key] || 0;
-        if (owned < card.needed) {
-            missing.push({
-                key,
-                name: card.name,
-                needed: card.needed,
-                owned,
-                missing: card.needed - owned
-            });
-        }
+        const owned = collection[key]?.qty || 0;
+
+        if (owned >= card.needed) continue;
+
+        const suggestions = Object.entries(collection)
+            .filter(([k, c]) => c.name === card.name && k !== key && c.qty > 0)
+            .map(([k, c]) => ({
+                key: k,
+                set: c.set,
+                number: c.number,
+                quantity: c.qty
+            }));
+
+        missing.push({
+            key,
+            name: card.name,
+            needed: card.needed,
+            owned,
+            missing: card.needed - owned,
+            suggested: suggestions
+        });
     }
 
     return missing;
 }
 
-// Main execution function
+// Main logic
 async function main() {
-    try {
-        const { deck, invalidLines } = parseDeckFromText(deckText);
-        const collection = await readCollection();
-        const missingCards = compareDeckWithCollection(deck, collection);
+    const { deck, invalid } = parseDeck(deckText);
+    const collection = await getCollection();
+    const missing = compare(deck, collection);
 
-        const result = {
-            missingCards,
-            ignoredLines: invalidLines
-        };
+    const result = {
+        missingCards: missing,
+        ignoredLines: invalid
+    };
 
-        console.log(JSON.stringify(result, null, 2));
-        Script.setShortcutOutput(result);
-    } catch (err) {
-        console.error("Error:", err);
-        Script.setShortcutOutput({ error: err.message });
-    } finally {
-        Script.complete();
-    }
+    console.log(JSON.stringify(result, null, 2));
+    Script.setShortcutOutput(result);
+    Script.complete();
 }
 
 // Only run main() if not already running via external loader

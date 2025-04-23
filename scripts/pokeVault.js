@@ -32,6 +32,7 @@ async function main() {
 // Only run main() if not already running via external loader
 if (typeof __runFromLoader__ === "undefined") {
   main().then(output => {
+    console.log(JSON.stringify(output, null, 2));
     Script.setShortcutOutput(output);
     Script.complete();
   });

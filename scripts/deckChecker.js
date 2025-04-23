@@ -27,10 +27,6 @@ Item
 2 Poké Ball PROMO 5
 `.trim();
 
-// — 1️⃣ Get deck text from args or fallback to default
-// Place this at the very top, before parseDeck, so deckText always has a value
-const deckText = args.plainTexts?.[0] || defaultDeck;
-
 // — 2️⃣ Parse deck text into structured array
 function parseDeck(text) {
     const lines = text.split("\n");
@@ -133,7 +129,9 @@ function buildReport({ deck, invalid, missing }, collection) {
 }
 
 // — ▶️ MAIN LOGIC (to be called if standalone)
-async function main() {
+async function main(input = []) {
+    // — 1️⃣ Get deck text from args or fallback to default
+    const deckText = input[0] || defaultDeck;
     const { deck, invalid } = parseDeck(deckText);
     const collection = await readCollection();
     const missing = compare(deck, collection);
@@ -145,7 +143,7 @@ async function main() {
 // — 🧪 Run only if not imported
 if (typeof __runFromLoader__ === "undefined") {
     try {
-        const result = await main();
+        const result = await main(args.plainTexts);
         Script.setShortcutOutput(result);
     } catch (e) {
         console.error(e.message);

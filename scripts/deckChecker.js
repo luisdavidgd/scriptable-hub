@@ -27,8 +27,8 @@ Item
 2 Poké Ball PROMO 5
 `.trim();
 
-// — 1️⃣ Get deck text from args or fallback
-environment.setShortcutInput && environment.setShortcutInput(defaultDeck);
+// — 1️⃣ Get deck text from args or fallback to default
+// Place this at the very top, before parseDeck, so deckText always has a value
 const deckText = args.plainTexts?.[0] || defaultDeck;
 
 // — 2️⃣ Parse deck text into structured array
@@ -47,7 +47,7 @@ function parseDeck(text) {
         if (!qty || !set || !number || !name) {
             invalid.push(raw);
         } else {
-            deck.push({ key: `${set.trim()}-${number.trim()}`, name, needed: qty, set: set.trim(), number: number.trim() });
+            deck.push({ key: `${set}-${number}`, name, needed: qty, set, number });
         }
     }
     return { deck, invalid };
@@ -83,13 +83,13 @@ function compare(deck, collection) {
     for (let card of deck) {
         const own = collection[card.key]?.qty || 0;
         if (own >= card.needed) continue;
-        let suggestions = [];
-        // suggest whenever you have fewer than needed
-        if (own < card.needed) {
-            suggestions = Object.values(collection)
-                .filter(c => c.name.toLowerCase() === card.name.toLowerCase() && c.set !== card.set && c.qty > 0)
-                .map(c => ({ key: `${c.set}-${c.number}`, set: c.set, number: c.number, qty: c.qty }));
-        }
+        const suggestions = Object.values(collection)
+            .filter(c =>
+                c.name.toLowerCase() === card.name.toLowerCase() &&
+                c.set !== card.set &&
+                c.qty > 0
+            )
+            .map(c => ({ key: `${c.set}-${c.number}`, set: c.set, number: c.number, qty: c.qty }));
         missing.push({ ...card, owned: own, missing: card.needed - own, suggestions });
     }
     return missing;
@@ -101,18 +101,32 @@ function buildReport({ deck, invalid, missing }, collection) {
     lines.push(`Deck entries: ${deck.length}`);
     if (invalid.length) lines.push(`Ignored (${invalid.length}): ${invalid.join(', ')}`);
     const totalNeeded = deck.reduce((s, c) => s + c.needed, 0);
-    const totalOwned = deck.reduce((s, c) => s + Math.min(collection[c.key]?.qty || 0, c.needed), 0);
+    const totalOwned = deck.reduce(
+        (s, c) => s + Math.min(collection[c.key]?.qty || 0, c.needed),
+        0
+    );
     lines.push(`Progress: ${totalOwned}/${totalNeeded} owned.`);
+
+    // Show full deck list with owned vs needed
+    lines.push(`\n📋 Deck List:`);
+    deck.forEach(c => {
+        const own = collection[c.key]?.qty || 0;
+        lines.push(`- ${c.needed}× ${c.name} (${c.key}) — Owned: ${own}`);
+    });
+
     if (!missing.length) {
-        lines.push(`✅ Deck complete!`);
+        lines.push(`\n✅ Deck complete!`);
         return lines.join("\n");
     }
+
     lines.push(`\n❌ Missing Cards:`);
     for (let c of missing) {
         lines.push(`- ${c.missing}× ${c.name} (${c.key})`);
         if (c.suggestions.length) {
             lines.push(`  Suggestions:`);
-            c.suggestions.forEach(s => lines.push(`    • ${s.qty}× ${c.name} (${s.key})`));
+            c.suggestions.forEach(s =>
+                lines.push(`    • ${s.qty}× ${c.name} (${s.key})`)
+            );
         }
     }
     return lines.join("\n");
@@ -121,9 +135,13 @@ function buildReport({ deck, invalid, missing }, collection) {
 // — ▶️ MAIN
 let report;
 try {
+    // Parse deck (using default if no args)
     const { deck, invalid } = parseDeck(deckText);
+    // Load collection
     const collection = await readCollection();
+    // Compute missing + suggestions
     const missing = compare(deck, collection);
+    // Generate report text
     report = buildReport({ deck, invalid, missing }, collection);
     console.log(report);
     Script.setShortcutOutput(report);

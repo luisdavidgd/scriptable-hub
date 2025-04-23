@@ -1,8 +1,11 @@
+// Pokémon Deck Checker — Scriptable single-file with default deck input
+
+// — CONFIG: point to your Google Sheet CSV
 const SHEET_ID = "1mUimZUbpPU3JXU_vw_o6XEe9DKdQCiJMYx0ZL2bQzA4";
 const GID = "837318860";
-const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
+const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
 
-// Default deck if no input provided
+// — Default deck if no input provided via Share Sheet or Shortcut
 const defaultDeck = `
 Pokemon
 2 Weedle A2b 1
@@ -24,104 +27,113 @@ Item
 2 Poké Ball PROMO 5
 `.trim();
 
+// — 1️⃣ Get deck text from args or fallback to default
 const deckText = args.plainTexts?.[0] || defaultDeck;
 
-// Parse deck lines
+// — 2️⃣ Parse deck text into structured array, capturing invalid lines
 function parseDeck(text) {
     const lines = text.split("\n");
     const deck = [];
     const invalid = [];
 
-    for (const line of lines) {
-        const trimmed = line.trim();
-        if (!/^\d/.test(trimmed)) continue;
+    for (let raw of lines) {
+        let line = raw.trim();
+        if (!/^\d/.test(line)) continue;  // skip headers or non-card lines
 
-        const parts = trimmed.split(" ");
-        const qty = parseInt(parts[0]);
-        const set = parts[parts.length - 2];
-        const number = parts[parts.length - 1];
-        const name = parts.slice(1, -2).join(" ");
+        let parts = line.split(" ");
+        let qty = parseInt(parts.shift());
+        let number = parts.pop();
+        let set = parts.pop();
+        let name = parts.join(" ");
 
         if (!qty || !set || !number || !name) {
-            invalid.push(trimmed);
-            continue;
+            invalid.push(raw);
+        } else {
+            deck.push({ key: `${set}-${number}`, name, needed: qty, set, number });
         }
-
-        deck.push({ needed: qty, name, set, number });
     }
 
     return { deck, invalid };
 }
 
-// Read collection CSV from Google Sheets
-async function getCollection() {
-    const req = new Request(url);
-    const csv = await req.loadString();
-    const rows = csv.trim().split("\n").slice(1).map(r => r.split(","));
-
-    const collection = {};
-    for (const row of rows) {
-        const qty = parseInt(row[0]) || 0;
-        const name = row[2];
-        const set = row[3];
-        const number = row[4];
-        const key = `${set}-${number}`;
+// — 3️⃣ Fetch your collection CSV and build a lookup by “SET-NUMBER”
+async function readCollection() {
+    let req = new Request(CSV_URL);
+    let csv = await req.loadString();
+    let rows = csv.trim().split("\n").slice(1).map(r => r.split(","));
+    let col = {};
+    for (let r of rows) {
+        let qty = parseInt(r[0]) || 0;
+        let name = r[2];
+        let set = r[3];
+        let number = r[4];
         if (!set || !number || !name) continue;
-        collection[key] = { qty, name, set, number };
+        col[`${set}-${number}`] = { qty, name, set, number };
     }
-
-    return collection;
+    return col;
 }
 
-// Compare deck vs collection with suggestions
+// — 4️⃣ Compare deck vs collection, generate missing + suggestions
 function compare(deck, collection) {
-    const missing = [];
-
-    for (const card of deck) {
-        const key = `${card.set}-${card.number}`;
-        const owned = collection[key]?.qty || 0;
-
-        if (owned >= card.needed) continue;
-
-        const suggestions = Object.entries(collection)
-            .filter(([k, c]) => c.name === card.name && k !== key && c.qty > 0)
-            .map(([k, c]) => ({
-                key: k,
-                set: c.set,
-                number: c.number,
-                quantity: c.qty
-            }));
+    let missing = [];
+    for (let card of deck) {
+        let own = (collection[card.key]?.qty) || 0;
+        if (own >= card.needed) continue;
+        // find other prints of same Pokémon
+        let suggestions = Object.entries(collection)
+            .filter(([k, c]) => c.name === card.name && k !== card.key && c.qty > 0)
+            .map(([k, c]) => ({ key: k, set: c.set, number: c.number, qty: c.qty }));
 
         missing.push({
-            key,
+            key: card.key,
             name: card.name,
             needed: card.needed,
-            owned,
-            missing: card.needed - owned,
-            suggested: suggestions
+            owned: own,
+            missing: card.needed - own,
+            suggestions
         });
     }
-
     return missing;
 }
 
-// Main logic
-async function main() {
-    const { deck, invalid } = parseDeck(deckText);
-    const collection = await getCollection();
-    const missing = compare(deck, collection);
+// — 5️⃣ Format & log results in console
+function formatAndLog({ deck, invalid, missing }) {
+    console.log(`🃏 Deck contains ${deck.length} card entries; ${invalid.length} invalid lines ignored.`);
+    if (invalid.length) console.log("Ignored lines:", invalid);
 
-    const result = {
-        missingCards: missing,
-        ignoredLines: invalid
-    };
+    let totalNeeded = deck.reduce((s, c) => s + c.needed, 0);
+    let totalOwned = deck.reduce((s, c) => {
+        let own = collection[c.key]?.qty || 0;
+        return s + Math.min(own, c.needed);
+    }, 0);
+    console.log(`Progress: ${totalOwned}/${totalNeeded} cards owned.`);
 
-    console.log(JSON.stringify(result, null, 2));
-    Script.setShortcutOutput(result);
-    Script.complete();
+    if (!missing.length) {
+        console.log("✅ Deck complete! You have every card.");
+        return;
+    }
+
+    console.log("\n❌ Missing Cards:");
+    missing.forEach(c => {
+        console.log(`– ${c.missing}× ${c.name} (${c.key})`);
+        if (c.suggestions.length) {
+            console.log("   Suggestions:");
+            c.suggestions.forEach(s => console.log(`     • ${s.qty}× ${c.name} (${s.key})`));
+        }
+    });
 }
 
-// Only run main() if not already running via external loader
-if (typeof __runFromLoader__ === "undefined") {
-    main();
+// — ▶️ MAIN
+let collection;
+try {
+    const { deck, invalid } = parseDeck(deckText);
+    collection = await readCollection();
+    const missing = compare(deck, collection);
+    formatAndLog({ deck, invalid, missing });
+    Script.setShortcutOutput({ deck, invalid, missing });
+} catch (e) {
+    console.error(e.message);
+    Script.setShortcutOutput({ error: e.message });
+} finally {
+    Script.complete();
 }

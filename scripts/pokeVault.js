@@ -29,8 +29,10 @@ async function main() {
   return output;
 }
 
-main().then(output => {
-  console.log(JSON.stringify(output, null, 2)); // Depuración opcional en consola
-  Script.setShortcutOutput(output); // Configurar salida como JSON para Shortcuts
-  Script.complete(); // Finalizar el script
-});
+// Only run main() if not already running via external loader
+if (typeof __runFromLoader__ === "undefined") {
+  main().then(output => {
+    Script.setShortcutOutput(output);
+    Script.complete();
+  });
+}

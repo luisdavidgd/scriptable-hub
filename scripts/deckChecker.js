@@ -132,22 +132,25 @@ function buildReport({ deck, invalid, missing }, collection) {
     return lines.join("\n");
 }
 
-// — ▶️ MAIN
-let report;
-try {
-    // Parse deck (using default if no args)
+// — ▶️ MAIN LOGIC (to be called if standalone)
+async function main() {
     const { deck, invalid } = parseDeck(deckText);
-    // Load collection
     const collection = await readCollection();
-    // Compute missing + suggestions
     const missing = compare(deck, collection);
-    // Generate report text
-    report = buildReport({ deck, invalid, missing }, collection);
+    const report = buildReport({ deck, invalid, missing }, collection);
     console.log(report);
-    Script.setShortcutOutput(report);
-} catch (e) {
-    console.error(e.message);
-    Script.setShortcutOutput(e.message);
-} finally {
-    Script.complete();
+    return report;
+}
+
+// — 🧪 Run only if not imported
+if (typeof __runFromLoader__ === "undefined") {
+    try {
+        const result = await main();
+        Script.setShortcutOutput(result);
+    } catch (e) {
+        console.error(e.message);
+        Script.setShortcutOutput(e.message);
+    } finally {
+        Script.complete();
+    }
 }

@@ -83,7 +83,7 @@ function compare(deck, collection) {
         let suggestions = [];
         if (own === 0) {
             suggestions = Object.entries(collection)
-                .filter(([k, c]) => c.name === card.name && k !== card.key && c.qty > 0)
+                .filter(([k, c]) => c.name === card.name && k !== card.key && c.set !== card.set && c.qty > 0)
                 .map(([k, c]) => ({ key: k, set: c.set, number: c.number, qty: c.qty }));
         }
 
@@ -100,7 +100,7 @@ function compare(deck, collection) {
 }
 
 // — 5️⃣ Build a human‑readable report text
-function buildReport({ deck, invalid, missing }) {
+function buildReport({ deck, invalid, missing }, collection) {
     let lines = [];
     lines.push(`Deck entries: ${deck.length}`);
     if (invalid.length) {
@@ -122,7 +122,7 @@ function buildReport({ deck, invalid, missing }) {
     for (let c of missing) {
         lines.push(`- ${c.missing}× ${c.name} (${c.key})`);
         if (c.suggestions.length) {
-            lines.push(`  Suggestions (you own these alternatives):`);
+            lines.push(`  Suggestions (alternative prints you own):`);
             for (let s of c.suggestions) {
                 lines.push(`    • ${s.qty}× ${c.name} (${s.key})`);
             }
@@ -133,11 +133,12 @@ function buildReport({ deck, invalid, missing }) {
 
 // — ▶️ MAIN
 let report;
+let collection;
 try {
     const { deck, invalid } = parseDeck(deckText);
     collection = await readCollection();
     const missing = compare(deck, collection);
-    report = buildReport({ deck, invalid, missing });
+    report = buildReport({ deck, invalid, missing }, collection);
     console.log(report);
     Script.setShortcutOutput(report);
 } catch (e) {

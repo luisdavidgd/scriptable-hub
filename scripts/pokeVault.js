@@ -25,14 +25,14 @@ async function main() {
       number: row[4]
     }))
   };
-
+  
+  console.log(JSON.stringify(output));
   return output;
 }
 
 // Only run main() if not already running via external loader
 if (typeof __runFromLoader__ === "undefined") {
-  main().then(output => {
-    console.log(JSON.stringify(output, null, 2));
+  await main().then(output => {
     Script.setShortcutOutput(output);
     Script.complete();
   });

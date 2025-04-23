@@ -73,16 +73,19 @@ async function readCollection() {
     return col;
 }
 
-// — 4️⃣ Compare deck vs collection, generate missing + suggestions
+// — 4️⃣ Compare deck vs collection, generate missing + suggestions only if owned===0
 function compare(deck, collection) {
     let missing = [];
     for (let card of deck) {
         let own = (collection[card.key]?.qty) || 0;
         if (own >= card.needed) continue;
-        // find other prints of same Pokémon
-        let suggestions = Object.entries(collection)
-            .filter(([k, c]) => c.name === card.name && k !== card.key && c.qty > 0)
-            .map(([k, c]) => ({ key: k, set: c.set, number: c.number, qty: c.qty }));
+
+        let suggestions = [];
+        if (own === 0) {
+            suggestions = Object.entries(collection)
+                .filter(([k, c]) => c.name === card.name && k !== card.key && c.qty > 0)
+                .map(([k, c]) => ({ key: k, set: c.set, number: c.number, qty: c.qty }));
+        }
 
         missing.push({
             key: card.key,
@@ -96,44 +99,50 @@ function compare(deck, collection) {
     return missing;
 }
 
-// — 5️⃣ Format & log results in console
-function formatAndLog({ deck, invalid, missing }) {
-    console.log(`🃏 Deck contains ${deck.length} card entries; ${invalid.length} invalid lines ignored.`);
-    if (invalid.length) console.log("Ignored lines:", invalid);
-
+// — 5️⃣ Build a human‑readable report text
+function buildReport({ deck, invalid, missing }) {
+    let lines = [];
+    lines.push(`Deck entries: ${deck.length}`);
+    if (invalid.length) {
+        lines.push(`Ignored lines (${invalid.length}): ${invalid.join(', ')}`);
+    }
     let totalNeeded = deck.reduce((s, c) => s + c.needed, 0);
     let totalOwned = deck.reduce((s, c) => {
         let own = collection[c.key]?.qty || 0;
         return s + Math.min(own, c.needed);
     }, 0);
-    console.log(`Progress: ${totalOwned}/${totalNeeded} cards owned.`);
+    lines.push(`Progress: ${totalOwned}/${totalNeeded} cards owned.`);
 
     if (!missing.length) {
-        console.log("✅ Deck complete! You have every card.");
-        return;
+        lines.push(`✅ Deck complete! You have every card.`);
+        return lines.join("\n");
     }
 
-    console.log("\n❌ Missing Cards:");
-    missing.forEach(c => {
-        console.log(`– ${c.missing}× ${c.name} (${c.key})`);
+    lines.push(`\n❌ Missing Cards:`);
+    for (let c of missing) {
+        lines.push(`- ${c.missing}× ${c.name} (${c.key})`);
         if (c.suggestions.length) {
-            console.log("   Suggestions:");
-            c.suggestions.forEach(s => console.log(`     • ${s.qty}× ${c.name} (${s.key})`));
+            lines.push(`  Suggestions (you own these alternatives):`);
+            for (let s of c.suggestions) {
+                lines.push(`    • ${s.qty}× ${c.name} (${s.key})`);
+            }
         }
-    });
+    }
+    return lines.join("\n");
 }
 
 // — ▶️ MAIN
-let collection;
+let report;
 try {
     const { deck, invalid } = parseDeck(deckText);
     collection = await readCollection();
     const missing = compare(deck, collection);
-    formatAndLog({ deck, invalid, missing });
-    Script.setShortcutOutput({ deck, invalid, missing });
+    report = buildReport({ deck, invalid, missing });
+    console.log(report);
+    Script.setShortcutOutput(report);
 } catch (e) {
     console.error(e.message);
-    Script.setShortcutOutput({ error: e.message });
+    Script.setShortcutOutput(e.message);
 } finally {
     Script.complete();
 }

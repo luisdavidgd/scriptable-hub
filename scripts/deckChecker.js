@@ -5,7 +5,7 @@ const SHEET_ID = "1mUimZUbpPU3JXU_vw_o6XEe9DKdQCiJMYx0ZL2bQzA4";
 const GID = "837318860";
 const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
 
-// — Default deck if no input provided via Share Sheet or Shortcut
+// — Default deck if no input provided
 const defaultDeck = `
 Pokemon
 2 Weedle A2b 1
@@ -27,105 +27,92 @@ Item
 2 Poké Ball PROMO 5
 `.trim();
 
-// — 1️⃣ Get deck text from args or fallback to default
+// — 1️⃣ Get deck text from args or fallback
+environment.setShortcutInput && environment.setShortcutInput(defaultDeck);
 const deckText = args.plainTexts?.[0] || defaultDeck;
 
-// — 2️⃣ Parse deck text into structured array, capturing invalid lines
+// — 2️⃣ Parse deck text into structured array
 function parseDeck(text) {
     const lines = text.split("\n");
     const deck = [];
     const invalid = [];
-
     for (let raw of lines) {
-        let line = raw.trim();
-        if (!/^\d/.test(line)) continue;  // skip headers or non-card lines
-
-        let parts = line.split(" ");
-        let qty = parseInt(parts.shift());
-        let number = parts.pop();
-        let set = parts.pop();
-        let name = parts.join(" ");
-
+        const line = raw.trim();
+        if (!/^\d/.test(line)) continue;
+        let parts = line.split(/\s+/);
+        const qty = parseInt(parts.shift(), 10);
+        const number = parts.pop();
+        const set = parts.pop();
+        const name = parts.join(" ").trim();
         if (!qty || !set || !number || !name) {
             invalid.push(raw);
         } else {
-            deck.push({ key: `${set}-${number}`, name, needed: qty, set, number });
+            deck.push({ key: `${set.trim()}-${number.trim()}`, name, needed: qty, set: set.trim(), number: number.trim() });
         }
     }
-
     return { deck, invalid };
 }
 
-// — 3️⃣ Fetch your collection CSV and build a lookup by “SET-NUMBER”
+// — 3️⃣ Fetch collection CSV and build lookup by SET-NUMBER
 async function readCollection() {
-    let req = new Request(CSV_URL);
-    let csv = await req.loadString();
-    let rows = csv.trim().split("\n").slice(1).map(r => r.split(","));
-    let col = {};
-    for (let r of rows) {
-        let qty = parseInt(r[0]) || 0;
-        let name = r[2];
-        let set = r[3];
-        let number = r[4];
+    const req = new Request(CSV_URL);
+    const csv = await req.loadString();
+    const rows = csv.trim().split("\n");
+    const header = rows.shift().split(",").map(h => h.trim());
+    const idxNormal = header.indexOf("Normal");
+    const idxName = header.indexOf("Name");
+    const idxSet = header.indexOf("Set");
+    const idxNumber = header.indexOf("Number");
+    const col = {};
+    for (let line of rows) {
+        const cells = line.split(",").map(c => c.trim());
+        const qty = parseInt(cells[idxNormal], 10) || 0;
+        const name = cells[idxName] || "";
+        const set = cells[idxSet] || "";
+        const number = cells[idxNumber] || "";
         if (!set || !number || !name) continue;
-        col[`${set}-${number}`] = { qty, name, set, number };
+        const key = `${set}-${number}`;
+        col[key] = { qty, name: name.trim(), set: set.trim(), number: number.trim() };
     }
     return col;
 }
 
-// — 4️⃣ Compare deck vs collection, generate missing + suggestions only if owned===0
+// — 4️⃣ Compare deck vs collection, generate missing + suggestions if owned < needed
 function compare(deck, collection) {
-    let missing = [];
+    const missing = [];
     for (let card of deck) {
-        let own = (collection[card.key]?.qty) || 0;
+        const own = collection[card.key]?.qty || 0;
         if (own >= card.needed) continue;
-
         let suggestions = [];
-        if (own === 0) {
-            suggestions = Object.entries(collection)
-                .filter(([k, c]) => c.name === card.name && k !== card.key && c.set !== card.set && c.qty > 0)
-                .map(([k, c]) => ({ key: k, set: c.set, number: c.number, qty: c.qty }));
+        // suggest whenever you have fewer than needed
+        if (own < card.needed) {
+            suggestions = Object.values(collection)
+                .filter(c => c.name.toLowerCase() === card.name.toLowerCase() && c.set !== card.set && c.qty > 0)
+                .map(c => ({ key: `${c.set}-${c.number}`, set: c.set, number: c.number, qty: c.qty }));
         }
-
-        missing.push({
-            key: card.key,
-            name: card.name,
-            needed: card.needed,
-            owned: own,
-            missing: card.needed - own,
-            suggestions
-        });
+        missing.push({ ...card, owned: own, missing: card.needed - own, suggestions });
     }
     return missing;
 }
 
-// — 5️⃣ Build a human‑readable report text
+// — 5️⃣ Build a human‑readable report
 function buildReport({ deck, invalid, missing }, collection) {
-    let lines = [];
+    const lines = [];
     lines.push(`Deck entries: ${deck.length}`);
-    if (invalid.length) {
-        lines.push(`Ignored lines (${invalid.length}): ${invalid.join(', ')}`);
-    }
-    let totalNeeded = deck.reduce((s, c) => s + c.needed, 0);
-    let totalOwned = deck.reduce((s, c) => {
-        let own = collection[c.key]?.qty || 0;
-        return s + Math.min(own, c.needed);
-    }, 0);
-    lines.push(`Progress: ${totalOwned}/${totalNeeded} cards owned.`);
-
+    if (invalid.length) lines.push(`Ignored (${invalid.length}): ${invalid.join(', ')}`);
+    const totalNeeded = deck.reduce((s, c) => s + c.needed, 0);
+    const totalOwned = deck.reduce((s, c) => s + Math.min(collection[c.key]?.qty || 0, c.needed), 0);
+    lines.push(`Progress: ${totalOwned}/${totalNeeded} owned.`);
     if (!missing.length) {
-        lines.push(`✅ Deck complete! You have every card.`);
+        lines.push(`✅ Deck complete!`);
         return lines.join("\n");
     }
-
     lines.push(`\n❌ Missing Cards:`);
     for (let c of missing) {
         lines.push(`- ${c.missing}× ${c.name} (${c.key})`);
         if (c.suggestions.length) {
-            lines.push(`  Suggestions (alternative prints you own):`);
-            for (let s of c.suggestions) {
-                lines.push(`    • ${s.qty}× ${c.name} (${s.key})`);
-            }
+            lines.push(`  Suggestions:`);
+            c.suggestions.forEach(s => lines.push(`    • ${s.qty}× ${c.name} (${s.key})`));
         }
     }
     return lines.join("\n");
@@ -133,10 +120,9 @@ function buildReport({ deck, invalid, missing }, collection) {
 
 // — ▶️ MAIN
 let report;
-let collection;
 try {
     const { deck, invalid } = parseDeck(deckText);
-    collection = await readCollection();
+    const collection = await readCollection();
     const missing = compare(deck, collection);
     report = buildReport({ deck, invalid, missing }, collection);
     console.log(report);

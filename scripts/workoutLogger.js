@@ -116,19 +116,22 @@ async function editOrDeleteSession() {
   }
 
   let sessionKeys = Object.keys(data[dateToEdit]);
+  console.warn('sessionKeys', sessionKeys)
   let sessionToEdit = await askChoice(sessionKeys, "Choose the session to edit or delete:");
+  console.warn('sessionToEdit', sessionToEdit)
 
   let action = await askChoice(["Edit", "Delete"], "What would you like to do?");
 
   if (action === 0) {
     // Edit the session
-    let timeKey = sessionToEdit; // This should be the exact time key of the session to edit
-    let pushups = await askNumber("New pushups:");
-    let squats = await askNumber("New squats:");
-    let tabata = await askYesNo("Did you do Tabata?");
+    let timeKey = sessionToEdit; // Directly use the selected session key to update
+    let pushups = 2//await askNumber("New pushups:");
+    let squats = 2//await askNumber("New squats:");
+    let tabata = 2//await askYesNo("Did you do Tabata?");
 
     data[dateToEdit][timeKey] = { pushups, squats, tabata }; // Update the session using the exact time key
     let json = JSON.stringify(data, null, 2);
+    console.error(json)
     fm.writeString(path, json);
     console.log("Session updated.");
   } else {

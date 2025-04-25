@@ -122,11 +122,12 @@ async function editOrDeleteSession() {
 
   if (action === 0) {
     // Edit the session
+    let timeKey = sessionToEdit; // This should be the exact time key of the session to edit
     let pushups = await askNumber("New pushups:");
     let squats = await askNumber("New squats:");
     let tabata = await askYesNo("Did you do Tabata?");
 
-    data[dateToEdit][sessionToEdit] = { pushups, squats, tabata };
+    data[dateToEdit][timeKey] = { pushups, squats, tabata }; // Update the session using the exact time key
     let json = JSON.stringify(data, null, 2);
     fm.writeString(path, json);
     console.log("Session updated.");

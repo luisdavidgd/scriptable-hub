@@ -4,26 +4,26 @@ let fileName = "workout_log.json";
 let folderPath = fm.joinPath(fm.documentsDirectory(), "Data");
 
 if (!fm.fileExists(folderPath)) {
-  fm.createDirectory(folderPath, false);  // Crear carpeta 'Data' si no existe
+  fm.createDirectory(folderPath, false);  // Create 'Data' folder if it doesn't exist
 }
 
 let path = fm.joinPath(folderPath, fileName);
 
-// === Cargar datos existentes ===
+// === Load existing data ===
 let data = {};
 if (fm.fileExists(path)) {
-  await fm.downloadFileFromiCloud(path); // Asegurarse de que el archivo esté local
+  await fm.downloadFileFromiCloud(path); // Ensure the file is local
   try {
     data = JSON.parse(fm.readString(path));
   } catch (e) {
-    console.log("No se pudo leer el archivo. Iniciando nuevo registro.");
+    console.log("Unable to read the file. Starting a new log.");
     data = {};
   }
 } else {
-  console.log("Archivo no encontrado. Se creará uno nuevo.");
+  console.log("File not found. A new one will be created.");
 }
 
-// === Mostrar Menú ===
+// === Show Menu ===
 let alert = new Alert();
 alert.title = "Workout Tracker";
 alert.message = "Choose an option";
@@ -35,35 +35,37 @@ alert.addCancelAction("Cancel");
 
 let result = await alert.present();
 
-// === Acciones según la opción seleccionada ===
+// === Actions based on selected option ===
 if (result === 0) {
-  // Opción 1: Registrar un nuevo workout
+  // Option 1: Record a new workout
   await recordNewWorkout();
 } else if (result === 1) {
-  // Opción 2: Ver reporte semanal
+  // Option 2: View weekly report
   viewWeeklyReport();
 } else if (result === 2) {
-  // Opción 3: Ver reporte total
+  // Option 3: View total report
   viewTotalReport();
 } else if (result === 3) {
-  // Opción 4: Editar o eliminar sesión
+  // Option 4: Edit or delete a session
   await editOrDeleteSession();
 }
 
-// === Función para registrar un nuevo workout ===
+// === Function to record a new workout ===
 async function recordNewWorkout() {
-  let today = new Date();
-  let timestamp = today.toISOString();
+  let picker = new DatePicker();
+  let selectedDate = await picker.pickDate();
+  let today = selectedDate.toISOString().slice(0, 10);  // Use date in YYYY-MM-DD format
 
   let pushups = await askNumber("How many pushups did you do?");
   let squats = await askNumber("How many squats did you do?");
   let tabata = await askYesNo("Did you do Tabata today?");
 
-  if (!data[today.toISOString().slice(0, 10)]) {
-    data[today.toISOString().slice(0, 10)] = {};
+  if (!data[today]) {
+    data[today] = {};
   }
 
-  data[today.toISOString().slice(0, 10)][timestamp] = { pushups, squats, tabata };
+  let timestamp = selectedDate.toISOString();
+  data[today][timestamp] = { pushups, squats, tabata };
 
   let json = JSON.stringify(data, null, 2);
   fm.writeString(path, json);
@@ -73,7 +75,7 @@ async function recordNewWorkout() {
   console.log(json);
 }
 
-// === Función para ver reporte semanal ===
+// === Function to view weekly report ===
 function viewWeeklyReport() {
   let weeklySummary = getWeeklySummary(data);
   console.log(`Weekly Report:`);
@@ -82,7 +84,7 @@ function viewWeeklyReport() {
   console.log(`Total Tabata sessions this week: ${weeklySummary.totalTabata}`);
 }
 
-// === Función para ver reporte total ===
+// === Function to view total report ===
 function viewTotalReport() {
   let totalPushups = 0;
   let totalSquats = 0;
@@ -102,9 +104,11 @@ function viewTotalReport() {
   console.log(`Total Tabata sessions: ${totalTabata}`);
 }
 
-// === Función de edición o eliminación ===
+// === Function to edit or delete a session ===
 async function editOrDeleteSession() {
-  let dateToEdit = await askDate("Enter the date of the session you want to edit or delete (YYYY-MM-DD):");
+  let picker = new DatePicker();
+  let selectedDate = await picker.pickDate();
+  let dateToEdit = selectedDate.toISOString().slice(0, 10);
 
   if (!data[dateToEdit]) {
     console.log("No session found for that date.");
@@ -117,7 +121,7 @@ async function editOrDeleteSession() {
   let action = await askChoice(["Edit", "Delete"], "What would you like to do?");
 
   if (action === 0) {
-    // Editar la sesión
+    // Edit the session
     let pushups = await askNumber("New pushups:");
     let squats = await askNumber("New squats:");
     let tabata = await askYesNo("Did you do Tabata?");
@@ -127,10 +131,10 @@ async function editOrDeleteSession() {
     fm.writeString(path, json);
     console.log("Session updated.");
   } else {
-    // Eliminar la sesión
+    // Delete the session
     delete data[dateToEdit][sessionToEdit];
     if (Object.keys(data[dateToEdit]).length === 0) {
-      delete data[dateToEdit];  // Eliminar el día si no hay más sesiones
+      delete data[dateToEdit];  // Remove the date if there are no more sessions
     }
     let json = JSON.stringify(data, null, 2);
     fm.writeString(path, json);
@@ -138,10 +142,10 @@ async function editOrDeleteSession() {
   }
 }
 
-// === Función para obtener resumen semanal ===
+// === Function to get weekly summary ===
 function getWeeklySummary(data) {
   let startOfWeek = new Date();
-  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Lunes de esta semana
+  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Monday of this week
 
   let totalPushups = 0;
   let totalSquats = 0;
@@ -165,7 +169,7 @@ function getWeeklySummary(data) {
   };
 }
 
-// === Función de preguntas ===
+// === Function to ask for number input ===
 async function askNumber(question) {
   let alert = new Alert();
   alert.title = question;
@@ -190,13 +194,4 @@ async function askChoice(choices, question) {
   choices.forEach(choice => alert.addAction(choice));
   let result = await alert.present();
   return result;
-}
-
-async function askDate(question) {
-  let alert = new Alert();
-  alert.title = question;
-  alert.addTextField("Enter date (YYYY-MM-DD)", "");
-  alert.addAction("OK");
-  await alert.present();
-  return alert.textFieldValue(0);
 }

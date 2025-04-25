@@ -64,8 +64,8 @@ async function recordNewWorkout() {
     data[today] = {};
   }
 
-  let timestamp = selectedDate.toISOString();
-  data[today][timestamp] = { pushups, squats, tabata };
+  let timeKey = selectedDate.toISOString().slice(11, 19);  // Use HH:mm:ss for the key
+  data[today][timeKey] = { pushups, squats, tabata };
 
   let json = JSON.stringify(data, null, 2);
   fm.writeString(path, json);

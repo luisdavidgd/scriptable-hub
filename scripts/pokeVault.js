@@ -62,10 +62,39 @@ async function main() {
       return `No results found for "${SEARCH_TERM}".`;
     }
 
-    let output = `Search Results for "${SEARCH_TERM}":\n\n`;
-    matches.forEach((row, index) => {
-      output += `${index + 1}. ${row[2]} (Set: ${row[3]}, Number: ${row[4]}, Quantity: ${row[0]})\n`;
+    // Separate matches into "Already got it" and "Still missing"
+    let alreadyGotIt = [];
+    let stillMissing = [];
+
+    matches.forEach(row => {
+      const name = row[2];
+      const set = row[3];
+      const number = row[4];
+      const quantity = parseInt(row[0], 10) || 0; // Parse quantity as a number
+      if (quantity > 0) {
+        alreadyGotIt.push(`${name} ${set}-${number} (${quantity})`);
+      } else {
+        stillMissing.push(`${name} ${set}-${number}`);
+      }
     });
+
+    // Build the output
+    let output = `Search Results for "${SEARCH_TERM}":\n\n`;
+
+    if (alreadyGotIt.length > 0) {
+      output += `Already got it:\n`;
+      alreadyGotIt.forEach((item, index) => {
+        output += `${index + 1}. ${item}\n`;
+      });
+      output += `\n`;
+    }
+
+    if (stillMissing.length > 0) {
+      output += `Still missing:\n`;
+      stillMissing.forEach((item, index) => {
+        output += `${index + 1}. ${item}\n`;
+      });
+    }
 
     // Log and return the output
     console.log(output);

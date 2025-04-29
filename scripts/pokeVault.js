@@ -91,6 +91,25 @@ async function getCSV() {
   }
 }
 
+/**
+ * Filters rows based on the search term.
+ * @param {Array} rows - The rows from the CSV.
+ * @param {string} searchTerm - The term to search for.
+ * @returns {Array} - Filtered rows matching the search term.
+ */
+function filterRows(rows, searchTerm) {
+  return rows.filter(row => {
+    // Validar que la fila tenga al menos 3 columnas (para evitar errores de índice)
+    if (row.length < 3) {
+      console.warn("Skipping malformed row:", row);
+      return false;
+    }
+
+    // Validar que el nombre del Pokémon (row[2]) exista y coincida con el término de búsqueda
+    return row[2] && row[2].toLowerCase().includes(searchTerm.toLowerCase());
+  });
+}
+
 // — Main Logic —
 
 async function main() {

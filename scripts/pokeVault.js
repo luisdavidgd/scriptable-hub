@@ -3,53 +3,84 @@ const SHEET_ID = "1mUimZUbpPU3JXU_vw_o6XEe9DKdQCiJMYx0ZL2bQzA4";
 const GID = "837318860";
 const SEARCH_TERM = args.plainTexts[0] || "Pikachu"; // Default to Pikachu if no input provided
 const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
+const filePath = FileManager.iCloud().joinPath(FileManager.iCloud().documentsDirectory(), "ptcgp.csv");
 
 // — Utility Functions —
 
 /**
  * Fetches and parses the CSV from Google Spreadsheet.
- * @returns {Promise<Array>} - Returns an array of rows from the CSV.
+ * @returns {Promise<string>} - Returns the raw CSV string.
  */
-async function fetchCSV() {
+async function fetchCSVFromGoogle() {
   let req = new Request(url);
-  let csv = await req.loadString();
-  return csv.trim().split("\n").map(row => row.split(","));
+  return await req.loadString();
 }
 
 /**
- * Filters rows based on the search term.
- * @param {Array} rows - The rows from the CSV.
- * @param {string} searchTerm - The term to search for.
- * @returns {Array} - Filtered rows matching the search term.
+ * Saves the CSV to iCloud.
+ * @param {string} csv - The raw CSV string.
  */
-function filterRows(rows, searchTerm) {
-  return rows.filter(row => row[2] && row[2].toLowerCase().includes(searchTerm.toLowerCase()));
+function saveCSVToFile(csv) {
+  const fm = FileManager.iCloud();
+  fm.writeString(filePath, csv);
 }
 
 /**
- * Formats the filtered rows into a structured JSON object.
- * @param {Array} matches - The filtered rows.
- * @param {string} searchTerm - The search term used.
- * @returns {Object} - A JSON object with the search term and results.
+ * Reads the CSV from iCloud.
+ * If the file doesn't exist, attempts to download it from Google Spreadsheet.
+ * @returns {Promise<string>} - The raw CSV string.
  */
-function formatOutput(matches, searchTerm) {
-  return {
-    searchTerm,
-    results: matches.map(row => ({
-      quantity: row[0],
-      name: row[2],
-      set: row[3],
-      number: row[4]
-    }))
-  };
+async function readCSVFromFile() {
+  const fm = FileManager.iCloud();
+  if (!fm.fileExists(filePath)) {
+    console.log("CSV file does not exist. Downloading from Google Spreadsheet...");
+    const csv = await fetchCSVFromGoogle();
+    saveCSVToFile(csv);
+    return csv;
+  }
+  return fm.readString(filePath);
+}
+
+/**
+ * Checks if the CSV file is older than 48 hours.
+ * @returns {boolean} - True if the file is older than 48 hours, false otherwise.
+ */
+function isCSVOutdated() {
+  const fm = FileManager.iCloud();
+  if (!fm.fileExists(filePath)) {
+    return true; // File doesn't exist, so it's outdated
+  }
+  const fileDate = fm.modificationDate(filePath);
+  const now = new Date();
+  const diffInHours = (now - fileDate) / (1000 * 60 * 60);
+  return diffInHours > 48;
+}
+
+/**
+ * Fetches the CSV, either from iCloud or Google Spreadsheet if outdated.
+ * @returns {Promise<string>} - Returns the raw CSV string.
+ */
+async function getCSV() {
+  if (isCSVOutdated()) {
+    console.log("CSV is outdated or missing. Downloading from Google Spreadsheet...");
+    const csv = await fetchCSVFromGoogle();
+    saveCSVToFile(csv);
+    return csv;
+  } else {
+    console.log("Using cached CSV from iCloud.");
+    return readCSVFromFile();
+  }
 }
 
 // — Main Logic —
 
 async function main() {
   try {
-    // Fetch and parse the CSV
-    let rows = await fetchCSV();
+    // Fetch the CSV (either from iCloud or Google Spreadsheet)
+    const csv = await getCSV();
+
+    // Parse the CSV into rows
+    let rows = csv.trim().split("\n").map(row => row.split(","));
 
     // Skip the header row
     rows = rows.slice(1);
@@ -85,7 +116,7 @@ async function main() {
     if (alreadyGotIt.length > 0) {
       output += `Already got it:\n`;
       alreadyGotIt.forEach((item, index) => {
-        output += `${index++}. ${item}\n`;
+        output += `${index + 1}.\t  ${item}\n`;
       });
       output += `\n`;
     }
@@ -93,7 +124,7 @@ async function main() {
     if (stillMissing.length > 0) {
       output += `Still missing:\n`;
       stillMissing.forEach((item, index) => {
-        output += `${index++}. ${item}\n`;
+        output += `${index + 1}.\t ${item}\n`;
       });
     }
 

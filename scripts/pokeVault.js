@@ -75,7 +75,7 @@ async function main() {
       if (quantity > 0) {
         alreadyGotIt.push(`${name} ${set}-${number} (${quantity})`);
       } else {
-        stillMissing.push(`${name} ${set}-${number} (${quantity})`);
+        stillMissing.push(`${name} ${set}-${number}`);
       }
     });
 
@@ -84,16 +84,16 @@ async function main() {
 
     if (alreadyGotIt.length > 0) {
       output += `Already got it:\n`;
-      alreadyGotIt.forEach((item) => {
-        output += `${item}\n`;
+      alreadyGotIt.forEach((item, index) => {
+        output += `${index}. ${item}\n`;
       });
       output += `\n`;
     }
 
     if (stillMissing.length > 0) {
       output += `Still missing:\n`;
-      stillMissing.forEach((item) => {
-        output += `${item}\n`;
+      stillMissing.forEach((item, index) => {
+        output += `${index}. ${item}\n`;
       });
     }
 

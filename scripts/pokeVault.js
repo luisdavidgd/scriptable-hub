@@ -58,16 +58,34 @@ async function main() {
     let matches = filterRows(rows, SEARCH_TERM);
 
     // Format the output
-    let output = formatOutput(matches, SEARCH_TERM);
+    if (matches.length === 0) {
+      return `No results found for "${SEARCH_TERM}".`;
+    }
+
+    let output = `Search Results for "${SEARCH_TERM}":\n\n`;
+    matches.forEach((row, index) => {
+      output += `${index + 1}. ${row[2]} (Set: ${row[3]}, Number: ${row[4]}, Quantity: ${row[0]})\n`;
+    });
 
     // Log and return the output
-    console.log(JSON.stringify(output, null, 2));
+    console.log(output);
     return output;
   } catch (error) {
     console.error("Error:", error.message);
-    return { error: error.message };
+    return `Error: ${error.message}`;
   }
 }
+
+// — Run Logic —
+
+if (typeof __runFromLoader__ === "undefined") {
+  await main().then(output => {
+    Script.setShortcutOutput(output);
+    Script.complete();
+  });
+}
+
+module.exports = { main, fetchCSV, filterRows, formatOutput };
 
 // — Run Logic —
 

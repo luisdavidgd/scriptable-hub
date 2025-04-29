@@ -37,13 +37,22 @@ function saveCSVToFile(csv) {
  * @returns {Promise<string>} - The raw CSV string.
  */
 async function readCSVFromFile() {
-  if (!fm.fileExists(filePath)) {
-    console.log("CSV file does not exist. Downloading from Google Spreadsheet...");
-    const csv = await fetchCSVFromGoogle();
-    saveCSVToFile(csv);
+  try {
+    if (!fm.fileExists(filePath)) {
+      console.log("CSV file does not exist. Attempting to download from Google Spreadsheet...");
+      const csv = await fetchCSVFromGoogle();
+      saveCSVToFile(csv);
+      console.log("CSV file downloaded and saved successfully.");
+      return csv;
+    }
+    console.log("Reading CSV file from iCloud...");
+    const csv = fm.readString(filePath);
+    console.log("CSV file read successfully.");
     return csv;
+  } catch (error) {
+    console.error("Error in readCSVFromFile:", error.message);
+    throw new Error("Failed to read or download the CSV file.");
   }
-  return fm.readString(filePath);
 }
 
 /**
@@ -65,35 +74,66 @@ function isCSVOutdated() {
  * @returns {Promise<string>} - Returns the raw CSV string.
  */
 async function getCSV() {
-  if (isCSVOutdated()) {
-    console.log("CSV is outdated or missing. Downloading from Google Spreadsheet...");
-    const csv = await fetchCSVFromGoogle();
-    saveCSVToFile(csv);
-    return csv;
-  } else {
-    console.log("Using cached CSV from iCloud.");
-    return readCSVFromFile();
+  try {
+    if (isCSVOutdated()) {
+      console.log("CSV is outdated or missing. Downloading from Google Spreadsheet...");
+      const csv = await fetchCSVFromGoogle();
+      saveCSVToFile(csv);
+      console.log("CSV file downloaded and saved successfully.");
+      return csv;
+    } else {
+      console.log("Using cached CSV from iCloud.");
+      return await readCSVFromFile();
+    }
+  } catch (error) {
+    console.error("Error in getCSV:", error.message);
+    throw new Error("Failed to fetch the CSV file.");
   }
+}
+
+/**
+ * Filters rows based on the search term.
+ * @param {Array} rows - The rows from the CSV.
+ * @param {string} searchTerm - The term to search for.
+ * @returns {Array} - Filtered rows matching the search term.
+ */
+function filterRows(rows, searchTerm) {
+  return rows.filter(row => {
+    // Validar que la fila tenga al menos 3 columnas (para evitar errores de índice)
+    if (row.length < 3) {
+      console.warn("Skipping malformed row:", row);
+      return false;
+    }
+
+    // Validar que el nombre del Pokémon (row[2]) exista y coincida con el término de búsqueda
+    return row[2] && row[2].toLowerCase().includes(searchTerm.toLowerCase());
+  });
 }
 
 // — Main Logic —
 
 async function main() {
   try {
+    console.log("Starting main logic...");
     // Fetch the CSV (either from iCloud or Google Spreadsheet)
     const csv = await getCSV();
 
     // Parse the CSV into rows
+    console.log("Parsing CSV into rows...");
     let rows = csv.trim().split("\n").map(row => row.split(","));
+    console.log(`Parsed ${rows.length} rows from the CSV.`);
 
     // Skip the header row
     rows = rows.slice(1);
 
     // Filter rows based on the search term
+    console.log(`Filtering rows for search term: "${SEARCH_TERM}"...`);
     let matches = filterRows(rows, SEARCH_TERM);
+    console.log(`Found ${matches.length} matches for "${SEARCH_TERM}".`);
 
     // Format the output
     if (matches.length === 0) {
+      console.log("No matches found.");
       return `No results found for "${SEARCH_TERM}".`;
     }
 
@@ -133,16 +173,16 @@ async function main() {
     }
 
     // Add the file modification date at the end
-    const fm = FileManager.iCloud();
     const fileDate = fm.modificationDate(filePath);
     const formattedDate = fileDate.toLocaleString(); // Format the date as a readable string
     output += `\n\nBased on data last updated on: ${formattedDate}`;
 
     // Log and return the output
+    console.log("Output generated successfully.");
     console.log(output);
     return output;
   } catch (error) {
-    console.error("Error:", error.message);
+    console.error("Error in main:", error.message);
     return `Error: ${error.message}`;
   }
 }

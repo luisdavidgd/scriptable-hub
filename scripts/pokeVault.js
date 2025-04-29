@@ -2,8 +2,15 @@
 const SHEET_ID = "1mUimZUbpPU3JXU_vw_o6XEe9DKdQCiJMYx0ZL2bQzA4";
 const GID = "837318860";
 const SEARCH_TERM = args.plainTexts[0] || "Pikachu"; // Default to Pikachu if no input provided
+const fm = FileManager.iCloud();
+const dataDir = fm.joinPath(fm.documentsDirectory(), "Data");
+const filePath = fm.joinPath(dataDir, "ptcgp.csv");
 const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
-const filePath = FileManager.iCloud().joinPath(FileManager.iCloud().documentsDirectory(), "ptcgp.csv");
+
+// Ensure the Data directory exists
+if (!fm.fileExists(dataDir)) {
+  fm.createDirectory(dataDir);
+}
 
 // — Utility Functions —
 
@@ -17,21 +24,19 @@ async function fetchCSVFromGoogle() {
 }
 
 /**
- * Saves the CSV to iCloud.
+ * Saves the CSV to iCloud in the Data directory.
  * @param {string} csv - The raw CSV string.
  */
 function saveCSVToFile(csv) {
-  const fm = FileManager.iCloud();
   fm.writeString(filePath, csv);
 }
 
 /**
- * Reads the CSV from iCloud.
+ * Reads the CSV from iCloud in the Data directory.
  * If the file doesn't exist, attempts to download it from Google Spreadsheet.
  * @returns {Promise<string>} - The raw CSV string.
  */
 async function readCSVFromFile() {
-  const fm = FileManager.iCloud();
   if (!fm.fileExists(filePath)) {
     console.log("CSV file does not exist. Downloading from Google Spreadsheet...");
     const csv = await fetchCSVFromGoogle();
@@ -46,7 +51,6 @@ async function readCSVFromFile() {
  * @returns {boolean} - True if the file is older than 48 hours, false otherwise.
  */
 function isCSVOutdated() {
-  const fm = FileManager.iCloud();
   if (!fm.fileExists(filePath)) {
     return true; // File doesn't exist, so it's outdated
   }

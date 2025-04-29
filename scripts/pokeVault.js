@@ -84,16 +84,3 @@ if (typeof __runFromLoader__ === "undefined") {
     Script.complete();
   });
 }
-
-module.exports = { main, fetchCSV, filterRows, formatOutput };
-
-// — Run Logic —
-
-if (typeof __runFromLoader__ === "undefined") {
-  await main().then(output => {
-    Script.setShortcutOutput(JSON.stringify(output));
-    Script.complete();
-  });
-}
-
-module.exports = { main, fetchCSV, filterRows, formatOutput };

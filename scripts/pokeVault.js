@@ -132,6 +132,12 @@ async function main() {
       });
     }
 
+    // Add the file modification date at the end
+    const fm = FileManager.iCloud();
+    const fileDate = fm.modificationDate(filePath);
+    const formattedDate = fileDate.toLocaleString(); // Format the date as a readable string
+    output += `\n\nBased on data last updated on: ${formattedDate}`;
+
     // Log and return the output
     console.log(output);
     return output;

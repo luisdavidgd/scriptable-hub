@@ -67,14 +67,15 @@ async function main() {
     let stillMissing = [];
 
     matches.forEach(row => {
-      const name = row[2];
-      const set = row[3];
-      const number = row[4];
-      const quantity = parseInt(row[0], 10) || 0; // Parse quantity as a number
+      const name = row[2].trim();
+      const set = row[3].trim();
+      const number = row[4].trim();
+      const quantity = parseInt(row[0].trim(), 10) || 0;
+
       if (quantity > 0) {
         alreadyGotIt.push(`${name} ${set}-${number} (${quantity})`);
       } else {
-        stillMissing.push(`${name} ${set}-${number}`);
+        stillMissing.push(`${name} ${set}-${number} (${quantity})`);
       }
     });
 

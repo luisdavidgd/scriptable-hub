@@ -85,7 +85,7 @@ async function main() {
     if (alreadyGotIt.length > 0) {
       output += `Already got it:\n`;
       alreadyGotIt.forEach((item, index) => {
-        output += `${index}. ${item}\n`;
+        output += `${index++}. ${item}\n`;
       });
       output += `\n`;
     }
@@ -93,7 +93,7 @@ async function main() {
     if (stillMissing.length > 0) {
       output += `Still missing:\n`;
       stillMissing.forEach((item, index) => {
-        output += `${index}. ${item}\n`;
+        output += `${index++}. ${item}\n`;
       });
     }
 

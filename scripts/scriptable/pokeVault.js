@@ -125,8 +125,7 @@ function filterRows(rows, searchTerm) {
       return false;
     }
 
-    // Validar que el nombre del Pokémon (row[2]) exista y coincida con el término de búsqueda
-    return row[2] && row[2].toLowerCase().includes(searchTerm.toLowerCase());
+    return row[1] && row[1].toLowerCase().includes(searchTerm.toLowerCase());
   });
 }
 
@@ -162,9 +161,9 @@ async function main() {
     let stillMissing = [];
 
     matches.forEach(row => {
-      const name = row[2].trim();
-      const set = row[3].trim();
-      const number = row[4].trim();
+      const name = row[1].trim();
+      const set = row[2].trim();
+      const number = row[3].trim();
       const quantity = parseInt(row[0].trim(), 10) || 0;
 
       if (quantity > 0) {

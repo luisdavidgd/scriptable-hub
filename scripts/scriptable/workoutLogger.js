@@ -8,7 +8,7 @@ if (!fm.fileExists(configFolderPath)) {
   fm.createDirectory(configFolderPath);
 }
 
-// Load configuration
+// Load or create configuration
 let config = {};
 if (fm.fileExists(configFilePath)) {
   await fm.downloadFileFromiCloud(configFilePath); // Ensure the file is local
@@ -19,8 +19,12 @@ if (fm.fileExists(configFilePath)) {
     throw new Error("Invalid configuration file. Please check workoutLogger.cfg.");
   }
 } else {
-  console.error("Configuration file not found at:", configFilePath);
-  throw new Error("Configuration file is missing. Please create workoutLogger.cfg in the Config folder.");
+  console.log("Configuration file not found. Creating a new one with default values.");
+  config = {
+    GOOGLE_SCRIPT_URL: "https://example.com/default-hash", // Default value
+  };
+  fm.writeString(configFilePath, JSON.stringify(config, null, 2)); // Save default config
+  console.log("Default configuration file created at:", configFilePath);
 }
 
 // Extract the Google Script URL from the configuration
@@ -102,7 +106,7 @@ async function recordNewWorkout() {
   req.body = JSON.stringify(payload);
   let res = await req.loadString();
   console.log("Google Sheets response: " + res);
-}
+}Si n
 
 // === Function to view weekly report ===
 async function viewWeeklyReport() {

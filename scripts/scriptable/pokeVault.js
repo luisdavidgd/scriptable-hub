@@ -1,26 +1,71 @@
 // — Configuration —
-const SHEET_ID = "1mUimZUbpPU3JXU_vw_o6XEe9DKdQCiJMYx0ZL2bQzA4";
-const GID = "837318860";
 const SEARCH_TERM = args.plainTexts[0] || "Pikachu"; // Default to Pikachu if no input provided
+
 const fm = FileManager.iCloud();
+const configFolderPath = fm.joinPath(fm.documentsDirectory(), "Config");
+const configFilePath = fm.joinPath(configFolderPath, "pokeVault.json");
 const dataDir = fm.joinPath(fm.documentsDirectory(), "Data");
 const filePath = fm.joinPath(dataDir, "ptcgp.csv");
-const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
 
-// Ensure the Data directory exists
+// Ensure the Config and Data directories exist
+if (!fm.fileExists(configFolderPath)) {
+  fm.createDirectory(configFolderPath);
+}
 if (!fm.fileExists(dataDir)) {
   fm.createDirectory(dataDir);
+}
+
+// Load or create configuration
+let config = {};
+if (fm.fileExists(configFilePath)) {
+  await fm.downloadFileFromiCloud(configFilePath); // Ensure the file is local
+  try {
+    config = JSON.parse(fm.readString(configFilePath));
+  } catch (e) {
+    console.error("Failed to parse configuration file:", e);
+    throw new Error("Invalid configuration file. Please check pokeVault.json.");
+  }
+} else {
+  console.log("Configuration file not found. Creating a new one with default values.");
+  config = {
+    GOOGLE_DEPLOYMENT_ID: "YOUR_GOOGLE_DEPLOYMENT_ID_HERE",
+  };
+  fm.writeString(configFilePath, JSON.stringify(config, null, 2)); // Save default config
+  console.log("Default configuration file created at:", configFilePath);
+}
+
+// Extract the Google Script URL from the configuration
+const GOOGLE_SCRIPT_URL = `https://script.google.com/macros/s/${config.GOOGLE_DEPLOYMENT_ID}/exec`;
+if (!GOOGLE_SCRIPT_URL) {
+  throw new Error("GOOGLE_SCRIPT_URL is missing in the configuration file.");
 }
 
 // — Utility Functions —
 
 /**
- * Fetches and parses the CSV from Google Spreadsheet.
- * @returns {Promise<string>} - Returns the raw CSV string.
+ * Fetches collection data from Google Script and converts it to CSV format.
+ * @returns {Promise<string>} - The CSV string.
  */
-async function fetchCSVFromGoogle() {
-  let req = new Request(url);
-  return await req.loadString();
+async function fetchCollectionFromGoogle() {
+  const req = new Request(GOOGLE_SCRIPT_URL);
+  req.method = "POST";
+  req.headers = { "Content-Type": "application/json" };
+  req.body = JSON.stringify({ action: "getCollection" });
+
+  try {
+    const response = await req.loadJSON();
+    const rows = response.data.map(item => [
+      item.qty,
+      item.name,
+      item.set,
+      item.number,
+    ]);
+    const csv = rows.map(row => row.join(",")).join("\n");
+    return csv;
+  } catch (e) {
+    console.error("Failed to fetch collection data:", e);
+    throw new Error("Unable to fetch collection data. Please check your Google Script.");
+  }
 }
 
 /**
@@ -29,30 +74,6 @@ async function fetchCSVFromGoogle() {
  */
 function saveCSVToFile(csv) {
   fm.writeString(filePath, csv);
-}
-
-/**
- * Reads the CSV from iCloud in the Data directory.
- * If the file doesn't exist, attempts to download it from Google Spreadsheet.
- * @returns {Promise<string>} - The raw CSV string.
- */
-async function readCSVFromFile() {
-  try {
-    if (!fm.fileExists(filePath)) {
-      console.log("CSV file does not exist. Attempting to download from Google Spreadsheet...");
-      const csv = await fetchCSVFromGoogle();
-      saveCSVToFile(csv);
-      console.log("CSV file downloaded and saved successfully.");
-      return csv;
-    }
-    console.log("Reading CSV file from iCloud...");
-    const csv = fm.readString(filePath);
-    console.log("CSV file read successfully.");
-    return csv;
-  } catch (error) {
-    console.error("Error in readCSVFromFile:", error.message);
-    throw new Error("Failed to read or download the CSV file.");
-  }
 }
 
 /**
@@ -70,20 +91,20 @@ function isCSVOutdated() {
 }
 
 /**
- * Fetches the CSV, either from iCloud or Google Spreadsheet if outdated.
+ * Fetches the CSV, either from iCloud or Google Script if outdated.
  * @returns {Promise<string>} - Returns the raw CSV string.
  */
 async function getCSV() {
   try {
     if (isCSVOutdated()) {
-      console.log("CSV is outdated or missing. Downloading from Google Spreadsheet...");
-      const csv = await fetchCSVFromGoogle();
+      console.log("CSV is outdated or missing. Downloading from Google Script...");
+      const csv = await fetchCollectionFromGoogle();
       saveCSVToFile(csv);
       console.log("CSV file downloaded and saved successfully.");
       return csv;
     } else {
       console.log("Using cached CSV from iCloud.");
-      return await readCSVFromFile();
+      return fm.readString(filePath);
     }
   } catch (error) {
     console.error("Error in getCSV:", error.message);
@@ -99,14 +120,12 @@ async function getCSV() {
  */
 function filterRows(rows, searchTerm) {
   return rows.filter(row => {
-    // Validar que la fila tenga al menos 3 columnas (para evitar errores de índice)
     if (row.length < 3) {
       console.warn("Skipping malformed row:", row);
       return false;
     }
 
-    // Validar que el nombre del Pokémon (row[2]) exista y coincida con el término de búsqueda
-    return row[2] && row[2].toLowerCase().includes(searchTerm.toLowerCase());
+    return row[1] && row[1].toLowerCase().includes(searchTerm.toLowerCase());
   });
 }
 
@@ -115,7 +134,7 @@ function filterRows(rows, searchTerm) {
 async function main() {
   try {
     console.log("Starting main logic...");
-    // Fetch the CSV (either from iCloud or Google Spreadsheet)
+    // Fetch the CSV (either from iCloud or Google Script)
     const csv = await getCSV();
 
     // Parse the CSV into rows
@@ -142,9 +161,9 @@ async function main() {
     let stillMissing = [];
 
     matches.forEach(row => {
-      const name = row[2].trim();
-      const set = row[3].trim();
-      const number = row[4].trim();
+      const name = row[1].trim();
+      const set = row[2].trim();
+      const number = row[3].trim();
       const quantity = parseInt(row[0].trim(), 10) || 0;
 
       if (quantity > 0) {

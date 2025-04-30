@@ -1,9 +1,37 @@
-// Pokémon Deck Checker — Scriptable single-file with default deck input
+// === CONFIG ===
+const fm = FileManager.iCloud();
+const configFolderPath = fm.joinPath(fm.documentsDirectory(), "Config");
+const configFilePath = fm.joinPath(configFolderPath, "deckChecker.cfg");
 
-// — CONFIG: point to your Google Sheet CSV
-const SHEET_ID = "1mUimZUbpPU3JXU_vw_o6XEe9DKdQCiJMYx0ZL2bQzA4";
-const GID = "837318860";
-const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
+// Ensure the Config folder exists
+if (!fm.fileExists(configFolderPath)) {
+    fm.createDirectory(configFolderPath);
+}
+
+// Load or create configuration
+let config = {};
+if (fm.fileExists(configFilePath)) {
+    await fm.downloadFileFromiCloud(configFilePath); // Ensure the file is local
+    try {
+        config = JSON.parse(fm.readString(configFilePath));
+    } catch (e) {
+        console.error("Failed to parse configuration file:", e);
+        throw new Error("Invalid configuration file. Please check deckChecker.cfg.");
+    }
+} else {
+    console.log("Configuration file not found. Creating a new one with default values.");
+    config = {
+        GOOGLE_DEPLOYMENT_ID: "YOUR_GOOGLE_DEPLOYMENT_ID_HERE",
+    };
+    fm.writeString(configFilePath, JSON.stringify(config, null, 2)); // Save default config
+    console.log("Default configuration file created at:", configFilePath);
+}
+
+// Extract the Google Script URL from the configuration
+const GOOGLE_SCRIPT_URL = `https://script.google.com/macros/s/${config.GOOGLE_DEPLOYMENT_ID}/exec`;
+if (!GOOGLE_SCRIPT_URL) {
+    throw new Error("GOOGLE_SCRIPT_URL is missing in the configuration file.");
+}
 
 // — Default deck if no input provided
 const defaultDeck = `
@@ -51,26 +79,28 @@ function parseDeck(text) {
 
 // — 3️⃣ Fetch collection CSV and build lookup by SET-NUMBER
 async function readCollection() {
-    const req = new Request(CSV_URL);
-    const csv = await req.loadString();
-    const rows = csv.trim().split("\n");
-    const header = rows.shift().split(",").map(h => h.trim());
-    const idxNormal = header.indexOf("Normal");
-    const idxName = header.indexOf("Name");
-    const idxSet = header.indexOf("Set");
-    const idxNumber = header.indexOf("Number");
-    const col = {};
-    for (let line of rows) {
-        const cells = line.split(",").map(c => c.trim());
-        const qty = parseInt(cells[idxNormal], 10) || 0;
-        const name = cells[idxName] || "";
-        const set = cells[idxSet] || "";
-        const number = cells[idxNumber] || "";
-        if (!set || !number || !name) continue;
-        const key = `${set}-${number}`;
-        col[key] = { qty, name: name.trim(), set: set.trim(), number: number.trim() };
+    const req = new Request(GOOGLE_SCRIPT_URL);
+    req.method = "POST";
+    req.headers = { "Content-Type": "application/json" };
+    req.body = JSON.stringify({ action: "getCollection" });
+
+    try {
+        const response = await req.loadJSON();
+        const collection = {};
+        response.data.forEach(item => {
+            const key = `${item.set}-${item.number}`;
+            collection[key] = {
+                qty: item.qty,
+                name: item.name,
+                set: item.set,
+                number: item.number,
+            };
+        });
+        return collection;
+    } catch (e) {
+        console.error("Failed to fetch collection data:", e);
+        throw new Error("Unable to fetch collection data. Please check your Google Script.");
     }
-    return col;
 }
 
 // — 4️⃣ Compare deck vs collection, generate missing + suggestions if owned < needed

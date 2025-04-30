@@ -106,7 +106,7 @@ async function recordNewWorkout() {
   req.body = JSON.stringify(payload);
   let res = await req.loadString();
   console.log("Google Sheets response: " + res);
-}Si n
+}
 
 // === Function to view weekly report ===
 async function viewWeeklyReport() {

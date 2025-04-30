@@ -2,10 +2,15 @@
 const fm = FileManager.iCloud();
 const configFolderPath = fm.joinPath(fm.documentsDirectory(), "Config");
 const configFilePath = fm.joinPath(configFolderPath, "deckChecker.json");
+const dataDir = fm.joinPath(fm.documentsDirectory(), "Data");
+const csvFilePath = fm.joinPath(dataDir, "ptcgp.csv");
 
-// Ensure the Config folder exists
+// Ensure the Config and Data directories exist
 if (!fm.fileExists(configFolderPath)) {
     fm.createDirectory(configFolderPath);
+}
+if (!fm.fileExists(dataDir)) {
+    fm.createDirectory(dataDir);
 }
 
 // Load or create configuration
@@ -55,6 +60,78 @@ Item
 2 Poké Ball PROMO 5
 `.trim();
 
+// === Utility Functions ===
+
+/**
+ * Fetches collection data from Google Script and converts it to CSV format.
+ * @returns {Promise<string>} - The CSV string.
+ */
+async function fetchCollectionFromGoogle() {
+    const req = new Request(GOOGLE_SCRIPT_URL);
+    req.method = "POST";
+    req.headers = { "Content-Type": "application/json" };
+    req.body = JSON.stringify({ action: "getCollection" });
+
+    try {
+        const response = await req.loadJSON();
+        const rows = response.data.map(item => [
+            item.qty,
+            item.name,
+            item.set,
+            item.number,
+        ]);
+        const csv = rows.map(row => row.join(",")).join("\n");
+        return csv;
+    } catch (e) {
+        console.error("Failed to fetch collection data:", e);
+        throw new Error("Unable to fetch collection data. Please check your Google Script.");
+    }
+}
+
+/**
+ * Saves the CSV to iCloud in the Data directory.
+ * @param {string} csv - The raw CSV string.
+ */
+function saveCSVToFile(csv) {
+    fm.writeString(csvFilePath, csv);
+}
+
+/**
+ * Checks if the CSV file is older than 48 hours.
+ * @returns {boolean} - True if the file is older than 48 hours, false otherwise.
+ */
+function isCSVOutdated() {
+    if (!fm.fileExists(csvFilePath)) {
+        return true; // File doesn't exist, so it's outdated
+    }
+    const fileDate = fm.modificationDate(csvFilePath);
+    const now = new Date();
+    const diffInHours = (now - fileDate) / (1000 * 60 * 60);
+    return diffInHours > 48;
+}
+
+/**
+ * Fetches the CSV, either from iCloud or Google Script if outdated.
+ * @returns {Promise<string>} - Returns the raw CSV string.
+ */
+async function getCSV() {
+    try {
+        if (isCSVOutdated()) {
+            console.log("CSV is outdated or missing. Downloading from Google Script...");
+            const csv = await fetchCollectionFromGoogle();
+            saveCSVToFile(csv);
+            console.log("CSV file downloaded and saved successfully.");
+            return csv;
+        } else {
+            console.log("Using cached CSV from iCloud.");
+            return fm.readString(csvFilePath);
+        }
+    } catch (error) {
+        console.error("Error in getCSV:", error.message);
+        throw new Error("Failed to fetch the CSV file.");
+    }
+}
+
 // — 2️⃣ Parse deck text into structured array
 function parseDeck(text) {
     const lines = text.split("\n");
@@ -79,28 +156,20 @@ function parseDeck(text) {
 
 // — 3️⃣ Fetch collection CSV and build lookup by SET-NUMBER
 async function readCollection() {
-    const req = new Request(GOOGLE_SCRIPT_URL);
-    req.method = "POST";
-    req.headers = { "Content-Type": "application/json" };
-    req.body = JSON.stringify({ action: "getCollection" });
-
-    try {
-        const response = await req.loadJSON();
-        const collection = {};
-        response.data.forEach(item => {
-            const key = `${item.set}-${item.number}`;
-            collection[key] = {
-                qty: item.qty,
-                name: item.name,
-                set: item.set,
-                number: item.number,
-            };
-        });
-        return collection;
-    } catch (e) {
-        console.error("Failed to fetch collection data:", e);
-        throw new Error("Unable to fetch collection data. Please check your Google Script.");
-    }
+    const csv = await getCSV();
+    const rows = csv.trim().split("\n").map(row => row.split(","));
+    const collection = {};
+    rows.forEach(row => {
+        const [qty, name, set, number] = row;
+        const key = `${set}-${number}`;
+        collection[key] = {
+            qty: parseInt(qty, 10) || 0,
+            name,
+            set,
+            number,
+        };
+    });
+    return collection;
 }
 
 // — 4️⃣ Compare deck vs collection, generate missing + suggestions if owned < needed
@@ -142,19 +211,24 @@ function buildReport({ deck, invalid, missing }, collection) {
 
     if (!missing.length) {
         lines.push(`\n✅ Deck complete!`);
-        return lines.join("\n");
-    }
-
-    lines.push(`\n❌ Missing Cards:`);
-    for (let c of missing) {
-        lines.push(`- ${c.missing}× ${c.name} (${c.key})`);
-        if (c.suggestions.length) {
-            lines.push(`  Suggestions:`);
-            c.suggestions.forEach(s =>
-                lines.push(`    • ${s.qty}× ${c.name} (${s.key})`)
-            );
+    } else {
+        lines.push(`\n❌ Missing Cards:`);
+        for (let c of missing) {
+            lines.push(`- ${c.missing}× ${c.name} (${c.key})`);
+            if (c.suggestions.length) {
+                lines.push(`  Suggestions:`);
+                c.suggestions.forEach(s =>
+                    lines.push(`    • ${s.qty}× ${c.name} (${s.key})`)
+                );
+            }
         }
     }
+
+    // Add the file modification date at the end
+    const fileDate = fm.modificationDate(csvFilePath);
+    const formattedDate = fileDate.toLocaleString(); // Format the date as a readable string
+    lines.push(`\n\nBased on data last updated on: ${formattedDate}`);
+
     return lines.join("\n");
 }
 

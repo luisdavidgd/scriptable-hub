@@ -1,8 +1,37 @@
 // === CONFIG ===
 let fm = FileManager.iCloud();
+let configFolderPath = fm.joinPath(fm.documentsDirectory(), "Config");
+let configFilePath = fm.joinPath(configFolderPath, "workoutLogger.cfg");
+
+// Ensure the Config folder exists
+if (!fm.fileExists(configFolderPath)) {
+  fm.createDirectory(configFolderPath);
+}
+
+// Load configuration
+let config = {};
+if (fm.fileExists(configFilePath)) {
+  await fm.downloadFileFromiCloud(configFilePath); // Ensure the file is local
+  try {
+    config = JSON.parse(fm.readString(configFilePath));
+  } catch (e) {
+    console.error("Failed to parse configuration file:", e);
+    throw new Error("Invalid configuration file. Please check workoutLogger.cfg.");
+  }
+} else {
+  console.error("Configuration file not found at:", configFilePath);
+  throw new Error("Configuration file is missing. Please create workoutLogger.cfg in the Config folder.");
+}
+
+// Extract the Google Script URL from the configuration
+const GOOGLE_SCRIPT_URL = config.GOOGLE_SCRIPT_URL;
+if (!GOOGLE_SCRIPT_URL) {
+  throw new Error("GOOGLE_SCRIPT_URL is missing in the configuration file.");
+}
+
+// === WORKOUT LOGGER ===
 let fileName = "workout_log.json";
 let folderPath = fm.joinPath(fm.documentsDirectory(), "Data");
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwA-otr7KxXAH-J-TGPGam4zQc1HU4AmTo8nWO6Z1SNWNxyGsYFmVUODiUVYFFQzXga/exec";
 
 if (!fm.fileExists(folderPath)) {
   fm.createDirectory(folderPath, false); // Create 'Data' folder if it doesn't exist

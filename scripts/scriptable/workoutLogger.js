@@ -21,7 +21,7 @@ if (fm.fileExists(configFilePath)) {
 } else {
   console.log("Configuration file not found. Creating a new one with default values.");
   config = {
-    GOOGLE_SCRIPT_URL: "https://example.com/default-hash", // Default value
+    GOOGLE_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbwA-otr7KxXAH-J-TGPGam4zQc1HU4AmTo8nWO6Z1SNWNxyGsYFmVUODiUVYFFQzXga/exec", // Default value
   };
   fm.writeString(configFilePath, JSON.stringify(config, null, 2)); // Save default config
   console.log("Default configuration file created at:", configFilePath);

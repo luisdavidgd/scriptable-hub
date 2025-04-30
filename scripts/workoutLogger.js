@@ -2,6 +2,7 @@
 let fm = FileManager.iCloud();
 let fileName = "workout_log.json";
 let folderPath = fm.joinPath(fm.documentsDirectory(), "Data");
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwA-otr7KxXAH-J-TGPGam4zQc1HU4AmTo8nWO6Z1SNWNxyGsYFmVUODiUVYFFQzXga/exec"; // <-- paste yours
 
 if (!fm.fileExists(folderPath)) {
   fm.createDirectory(folderPath, false);  // Create 'Data' folder if it doesn't exist
@@ -54,25 +55,29 @@ if (result === 0) {
 async function recordNewWorkout() {
   let picker = new DatePicker();
   let selectedDate = await picker.pickDate();
-  let today = selectedDate.toISOString().slice(0, 10);  // Use date in YYYY-MM-DD format
+  let today = selectedDate.toISOString().slice(0, 10);
+  let timeKey = selectedDate.toISOString().slice(11, 19);
 
   let pushups = await askNumber("How many pushups did you do?");
   let squats = await askNumber("How many squats did you do?");
   let tabata = await askYesNo("Did you do Tabata today?");
 
-  if (!data[today]) {
-    data[today] = {};
-  }
+  // === Send to Google Sheets ===
+  let payload = {
+    action: "create",
+    date: today,
+    time: timeKey,
+    pushups: pushups,
+    squats: squats,
+    tabata: tabata
+  };
 
-  let timeKey = selectedDate.toISOString().slice(11, 19);  // Use HH:mm:ss for the key
-  data[today][timeKey] = { pushups, squats, tabata };
-
-  let json = JSON.stringify(data, null, 2);
-  fm.writeString(path, json);
-
-  console.log("Saved to: " + path);
-  console.log("Workout log:");
-  console.log(json);
+  let req = new Request(GOOGLE_SCRIPT_URL);
+  req.method = "POST";
+  req.headers = { "Content-Type": "application/json" };
+  req.body = JSON.stringify(payload);
+  let res = await req.loadString();
+  console.log("Google Sheets response: " + res);
 }
 
 // === Function to view weekly report ===

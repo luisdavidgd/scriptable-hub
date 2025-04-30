@@ -21,14 +21,14 @@ if (fm.fileExists(configFilePath)) {
 } else {
   console.log("Configuration file not found. Creating a new one with default values.");
   config = {
-    GOOGLE_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbwA-otr7KxXAH-J-TGPGam4zQc1HU4AmTo8nWO6Z1SNWNxyGsYFmVUODiUVYFFQzXga/exec", // Default value
+    GOOGLE_DEPLOYMENT_ID: "AKfycbwA-otr7KxXAH-J-TGPGam4zQc1HU4AmTo8nWO6Z1SNWNxyGsYFmVUODiUVYFFQzXga",
   };
   fm.writeString(configFilePath, JSON.stringify(config, null, 2)); // Save default config
   console.log("Default configuration file created at:", configFilePath);
 }
 
 // Extract the Google Script URL from the configuration
-const GOOGLE_SCRIPT_URL = config.GOOGLE_SCRIPT_URL;
+const GOOGLE_SCRIPT_URL = `https://script.google.com/macros/s/${config.GOOGLE_DEPLOYMENT_ID}/exec`;
 if (!GOOGLE_SCRIPT_URL) {
   throw new Error("GOOGLE_SCRIPT_URL is missing in the configuration file.");
 }

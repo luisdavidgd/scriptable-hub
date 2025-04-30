@@ -130,9 +130,9 @@ async function editOrDeleteSession() {
   if (action === 0) {
     // Edit the session
     let timeKey = sessionToEdit; // Directly use the selected session key to update
-    let pushups = 2//await askNumber("New pushups:");
-    let squats = 2//await askNumber("New squats:");
-    let tabata = 2//await askYesNo("Did you do Tabata?");
+    let pushups = await askNumber("New pushups:");
+    let squats = await askNumber("New squats:");
+    let tabata = await askYesNo("Did you do Tabata?");
 
     console.warn(data[dateToEdit][timeKey])
 

@@ -2,10 +2,10 @@
 let fm = FileManager.iCloud();
 let fileName = "workout_log.json";
 let folderPath = fm.joinPath(fm.documentsDirectory(), "Data");
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwA-otr7KxXAH-J-TGPGam4zQc1HU4AmTo8nWO6Z1SNWNxyGsYFmVUODiUVYFFQzXga/exec"; // <-- paste yours
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwA-otr7KxXAH-J-TGPGam4zQc1HU4AmTo8nWO6Z1SNWNxyGsYFmVUODiUVYFFQzXga/exec";
 
 if (!fm.fileExists(folderPath)) {
-  fm.createDirectory(folderPath, false);  // Create 'Data' folder if it doesn't exist
+  fm.createDirectory(folderPath, false); // Create 'Data' folder if it doesn't exist
 }
 
 let path = fm.joinPath(folderPath, fileName);
@@ -38,16 +38,12 @@ let result = await alert.present();
 
 // === Actions based on selected option ===
 if (result === 0) {
-  // Option 1: Record a new workout
   await recordNewWorkout();
 } else if (result === 1) {
-  // Option 2: View weekly report
-  viewWeeklyReport();
+  await viewWeeklyReport();
 } else if (result === 2) {
-  // Option 3: View total report
-  viewTotalReport();
+  await viewTotalReport();
 } else if (result === 3) {
-  // Option 4: Edit or delete a session
   await editOrDeleteSession();
 }
 
@@ -62,14 +58,13 @@ async function recordNewWorkout() {
   let squats = await askNumber("How many squats did you do?");
   let tabata = await askYesNo("Did you do Tabata today?");
 
-  // === Send to Google Sheets ===
   let payload = {
     action: "create",
     date: today,
     time: timeKey,
     pushups: pushups,
     squats: squats,
-    tabata: tabata
+    tabata: tabata,
   };
 
   let req = new Request(GOOGLE_SCRIPT_URL);
@@ -81,8 +76,15 @@ async function recordNewWorkout() {
 }
 
 // === Function to view weekly report ===
-function viewWeeklyReport() {
-  let weeklySummary = getWeeklySummary(data);
+async function viewWeeklyReport() {
+  let req = new Request(GOOGLE_SCRIPT_URL);
+  req.method = "POST";
+  req.headers = { "Content-Type": "application/json" };
+  req.body = JSON.stringify({ action: "list" });
+
+  let workouts = await req.loadJSON();
+  let weeklySummary = getWeeklySummary(workouts);
+
   console.log(`Weekly Report:`);
   console.log(`Total pushups this week: ${weeklySummary.totalPushups}`);
   console.log(`Total squats this week: ${weeklySummary.totalSquats}`);
@@ -90,97 +92,112 @@ function viewWeeklyReport() {
 }
 
 // === Function to view total report ===
-function viewTotalReport() {
-  let totalPushups = 0;
-  let totalSquats = 0;
-  let totalTabata = 0;
+async function viewTotalReport() {
+  let req = new Request(GOOGLE_SCRIPT_URL);
+  req.method = "POST";
+  req.headers = { "Content-Type": "application/json" };
+  req.body = JSON.stringify({ action: "list" });
 
-  for (let date in data) {
-    for (let session in data[date]) {
-      totalPushups += data[date][session].pushups;
-      totalSquats += data[date][session].squats;
-      if (data[date][session].tabata) totalTabata++;
-    }
-  }
+  let workouts = await req.loadJSON();
+  let totalSummary = getTotalSummary(workouts);
 
   console.log(`Total Report:`);
-  console.log(`Total pushups: ${totalPushups}`);
-  console.log(`Total squats: ${totalSquats}`);
-  console.log(`Total Tabata sessions: ${totalTabata}`);
+  console.log(`Total pushups: ${totalSummary.totalPushups}`);
+  console.log(`Total squats: ${totalSummary.totalSquats}`);
+  console.log(`Total Tabata sessions: ${totalSummary.totalTabata}`);
 }
 
 // === Function to edit or delete a session ===
 async function editOrDeleteSession() {
-  let picker = new DatePicker();
-  let selectedDate = await picker.pickDate();
-  let dateToEdit = selectedDate.toISOString().slice(0, 10);
+  let req = new Request(GOOGLE_SCRIPT_URL);
+  req.method = "POST";
+  req.headers = { "Content-Type": "application/json" };
+  req.body = JSON.stringify({ action: "list" });
 
-  if (!data[dateToEdit]) {
-    console.log("No session found for that date.");
-    return;
-  }
+  let workouts = await req.loadJSON();
 
-  let sessionKeys = Object.keys(data[dateToEdit]);
-  console.warn(sessionKeys)
-  let sessionToEdit = await askChoice(sessionKeys, "Choose the session to edit or delete:");
-  console.error(sessionToEdit)
+  let alert = new Alert();
+  alert.title = "Select a Workout";
+  workouts.forEach((workout, index) => {
+    alert.addAction(`${workout.date} ${workout.time} - Pushups: ${workout.pushups}, Squats: ${workout.squats}`);
+  });
+  alert.addCancelAction("Cancel");
 
+  let selectedIndex = await alert.present();
+  if (selectedIndex === -1) return;
+
+  let selectedWorkout = workouts[selectedIndex];
   let action = await askChoice(["Edit", "Delete"], "What would you like to do?");
 
   if (action === 0) {
-    // Edit the session
-    let timeKey = sessionToEdit; // Directly use the selected session key to update
     let pushups = await askNumber("New pushups:");
     let squats = await askNumber("New squats:");
     let tabata = await askYesNo("Did you do Tabata?");
 
-    console.warn(data[dateToEdit][timeKey])
+    let payload = {
+      action: "edit",
+      row: selectedWorkout.row,
+      pushups: pushups,
+      squats: squats,
+      tabata: tabata,
+    };
 
-    data[dateToEdit][timeKey] = { pushups, squats, tabata }; // Update the session using the exact time key
-    let json = JSON.stringify(data, null, 2);
-    console.error(json)
-    fm.writeString(path, json);
-    console.log("Session updated.");
+    let req = new Request(GOOGLE_SCRIPT_URL);
+    req.method = "POST";
+    req.headers = { "Content-Type": "application/json" };
+    req.body = JSON.stringify(payload);
+    let res = await req.loadString();
+    console.log("Google Sheets response: " + res);
   } else {
-    // Delete the session
-    delete data[dateToEdit][sessionToEdit];
-    if (Object.keys(data[dateToEdit]).length === 0) {
-      delete data[dateToEdit];  // Remove the date if there are no more sessions
-    }
-    let json = JSON.stringify(data, null, 2);
-    fm.writeString(path, json);
-    console.log("Session deleted.");
+    let payload = {
+      action: "delete",
+      row: selectedWorkout.row,
+    };
+
+    let req = new Request(GOOGLE_SCRIPT_URL);
+    req.method = "POST";
+    req.headers = { "Content-Type": "application/json" };
+    req.body = JSON.stringify(payload);
+    let res = await req.loadString();
+    console.log("Google Sheets response: " + res);
   }
 }
 
-// === Function to get weekly summary ===
-function getWeeklySummary(data) {
+// === Helper functions ===
+function getWeeklySummary(workouts) {
   let startOfWeek = new Date();
-  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Monday of this week
+  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
 
   let totalPushups = 0;
   let totalSquats = 0;
   let totalTabata = 0;
 
-  for (let date in data) {
-    let exerciseDate = new Date(date);
-    if (exerciseDate >= startOfWeek) {
-      for (let session in data[date]) {
-        totalPushups += data[date][session].pushups;
-        totalSquats += data[date][session].squats;
-        if (data[date][session].tabata) totalTabata++;
-      }
+  workouts.forEach(workout => {
+    let workoutDate = new Date(workout.date);
+    if (workoutDate >= startOfWeek) {
+      totalPushups += workout.pushups;
+      totalSquats += workout.squats;
+      if (workout.tabata === "Yes") totalTabata++;
     }
-  }
+  });
 
-  return {
-    totalPushups,
-    totalSquats,
-    totalTabata,
-  };
+  return { totalPushups, totalSquats, totalTabata };
 }
 
-// === Function to ask for number input ===
+function getTotalSummary(workouts) {
+  let totalPushups = 0;
+  let totalSquats = 0;
+  let totalTabata = 0;
+
+  workouts.forEach(workout => {
+    totalPushups += workout.pushups;
+    totalSquats += workout.squats;
+    if (workout.tabata === "Yes") totalTabata++;
+  });
+
+  return { totalPushups, totalSquats, totalTabata };
+}
+
 async function askNumber(question) {
   let alert = new Alert();
   alert.title = question;

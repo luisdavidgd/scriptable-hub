@@ -40,6 +40,8 @@ function createWorkout(sheet, data) {
     row.updatedAt,
   ]);
 
+  FormatDocument();
+
   return ContentService.createTextOutput("Workout created successfully");
 }
 
@@ -74,10 +76,12 @@ function editWorkout(sheet, data) {
     data.time || values[1],
     data.pushups || values[2],
     data.squats || values[3],
-    data.tabata ? "Yes" : values[4],
+    data.tabata ? "Yes" : "No",
     values[5], // Keep createdAt
     new Date().toISOString(), // Update updatedAt
   ]]);
+
+  FormatDocument();
 
   return ContentService.createTextOutput("Workout updated successfully");
 }
@@ -90,6 +94,8 @@ function deleteWorkout(sheet, data) {
 
   const rowNumber = parseInt(data.row, 10);
   sheet.deleteRow(rowNumber);
+
+  FormatDocument();
 
   return ContentService.createTextOutput("Workout deleted successfully");
 }

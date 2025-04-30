@@ -1,7 +1,7 @@
 // === CONFIG ===
 let fm = FileManager.iCloud();
 let configFolderPath = fm.joinPath(fm.documentsDirectory(), "Config");
-let configFilePath = fm.joinPath(configFolderPath, "workoutLogger.cfg");
+let configFilePath = fm.joinPath(configFolderPath, "workoutLogger.json");
 
 // Ensure the Config folder exists
 if (!fm.fileExists(configFolderPath)) {
@@ -16,7 +16,7 @@ if (fm.fileExists(configFilePath)) {
     config = JSON.parse(fm.readString(configFilePath));
   } catch (e) {
     console.error("Failed to parse configuration file:", e);
-    throw new Error("Invalid configuration file. Please check workoutLogger.cfg.");
+    throw new Error("Invalid configuration file. Please check workoutLogger.json.");
   }
 } else {
   console.log("Configuration file not found. Creating a new one with default values.");

@@ -1,7 +1,7 @@
 // === CONFIG ===
 const fm = FileManager.iCloud();
 const configFolderPath = fm.joinPath(fm.documentsDirectory(), "Config");
-const configFilePath = fm.joinPath(configFolderPath, "deckChecker.cfg");
+const configFilePath = fm.joinPath(configFolderPath, "deckChecker.json");
 
 // Ensure the Config folder exists
 if (!fm.fileExists(configFolderPath)) {
@@ -16,7 +16,7 @@ if (fm.fileExists(configFilePath)) {
         config = JSON.parse(fm.readString(configFilePath));
     } catch (e) {
         console.error("Failed to parse configuration file:", e);
-        throw new Error("Invalid configuration file. Please check deckChecker.cfg.");
+        throw new Error("Invalid configuration file. Please check deckChecker.json.");
     }
 } else {
     console.log("Configuration file not found. Creating a new one with default values.");

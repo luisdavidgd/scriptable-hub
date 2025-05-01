@@ -1,3 +1,6 @@
+// Variables used by Scriptable.
+// These must be at the very top of the file. Do not edit.
+// icon-color: deep-brown; icon-glyph: magic;
 // === CONFIG ===
 let fm = FileManager.iCloud();
 let configFolderPath = fm.joinPath(fm.documentsDirectory(), "Config");
@@ -16,12 +19,12 @@ if (fm.fileExists(configFilePath)) {
     config = JSON.parse(fm.readString(configFilePath));
   } catch (e) {
     console.error("Failed to parse configuration file:", e);
-    throw new Error("Invalid configuration file. Please check workoutLogger.json.");
+    throw new Error("Invalid configuration file. Please check workoutLogger.cfg.");
   }
 } else {
   console.log("Configuration file not found. Creating a new one with default values.");
   config = {
-    GOOGLE_DEPLOYMENT_ID: "AKfycbwA-otr7KxXAH-J-TGPGam4zQc1HU4AmTo8nWO6Z1SNWNxyGsYFmVUODiUVYFFQzXga",
+    GOOGLE_DEPLOYMENT_ID: "BKfycbwA-otr7KxXAH-J-TGPGam4zQc1HU4AmTo8nWO6Z1SLAFxyGsYFmVUODiUVYHhQzXga",
   };
   fm.writeString(configFilePath, JSON.stringify(config, null, 2)); // Save default config
   console.log("Default configuration file created at:", configFilePath);
@@ -65,6 +68,7 @@ alert.addAction("Record New Workout");
 alert.addAction("View Weekly Report");
 alert.addAction("View Total Report");
 alert.addAction("Edit or Delete a Session");
+alert.addAction("Look Workouts by Date");
 alert.addCancelAction("Cancel");
 
 let result = await alert.present();
@@ -78,6 +82,8 @@ if (result === 0) {
   await viewTotalReport();
 } else if (result === 3) {
   await editOrDeleteSession();
+} else if (result === 4) {
+  await lookWorkoutsByDate();
 }
 
 // === Function to record a new workout ===
@@ -194,6 +200,27 @@ async function editOrDeleteSession() {
     let res = await req.loadString();
     console.log("Google Sheets response: " + res);
   }
+}
+
+async function lookWorkoutsByDate() {
+  let picker = new DatePicker();
+  let selectedDate = await picker.pickDate();
+  let today = selectedDate.toISOString().slice(0, 10);
+
+
+  let payload = {
+    action: "lookWorkoutsByDate",
+    date: today,
+  };
+
+  console.log(payload)
+
+  let req = new Request(GOOGLE_SCRIPT_URL);
+  req.method = "POST";
+  req.headers = { "Content-Type": "application/json" };
+  req.body = JSON.stringify(payload);
+  let res = await req.loadString();
+  console.log("Google Sheets response: " + res);
 }
 
 // === Helper functions ===

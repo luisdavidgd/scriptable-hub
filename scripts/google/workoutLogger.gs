@@ -1,31 +1,33 @@
 function doPost(e) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetById(0);
-  const data = JSON.parse(e.postData.contents);
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Workout");
+  const params = JSON.parse(e.postData.contents);
 
-  if (data.action === "create") {
-    return createWorkout(sheet, data);
-  } else if (data.action === "read") {
-    return readWorkouts(sheet, data);
-  } else if (data.action === "edit") {
-    return editWorkout(sheet, data);
-  } else if (data.action === "delete") {
-    return deleteWorkout(sheet, data);
-  } else if (data.action === "list") {
+  if (params.action === "create") {
+    return createWorkout(sheet, params);
+  } else if (params.action === "read") {
+    return readWorkouts(sheet, params);
+  } else if (params.action === "edit") {
+    return editWorkout(sheet, params);
+  } else if (params.action === "delete") {
+    return deleteWorkout(sheet, params);
+  } else if (params.action === "list") {
     return listWorkouts(sheet);
+  } else if (params.action === "listByDate") {
+    return listWorkoutsByDate(sheet, params);
   }
 
   return ContentService.createTextOutput("Unsupported action");
 }
 
 // === CREATE ===
-function createWorkout(sheet, data) {
+function createWorkout(sheet, params) {
   const now = new Date().toISOString();
   const row = {
-    date: data.date || "",
-    time: data.time || "",
-    pushups: data.pushups || 0,
-    squats: data.squats || 0,
-    tabata: data.tabata ? "Yes" : "No",
+    date: params.date || "",
+    time: params.time || "",
+    pushups: params.pushups || 0,
+    squats: params.squats || 0,
+    tabata: params.tabata ? "Yes" : "No",
     createdAt: now,
     updatedAt: now,
   };
@@ -46,14 +48,14 @@ function createWorkout(sheet, data) {
 }
 
 // === READ ===
-function readWorkouts(sheet, data) {
+function readWorkouts(sheet, params) {
   const range = sheet.getDataRange();
   const values = range.getValues();
 
   // Optionally filter by date or other criteria
   const filtered = values.filter((row, index) => {
     if (index === 0) return false; // Skip header row
-    if (data.date && row[0] !== data.date) return false; // Filter by date
+    if (params.date && row[0] !== params.date) return false; // Filter by date
     return true;
   });
 
@@ -61,22 +63,22 @@ function readWorkouts(sheet, data) {
 }
 
 // === EDIT ===
-function editWorkout(sheet, data) {
-  if (!data.row) {
+function editWorkout(sheet, params) {
+  if (!params.row) {
     return ContentService.createTextOutput("Error: 'row' parameter is required for editing.");
   }
 
-  const rowNumber = parseInt(data.row, 10);
+  const rowNumber = parseInt(params.row, 10);
   const range = sheet.getRange(rowNumber, 1, 1, 7); // Get the range for the row
   const values = range.getValues()[0]; // Get the current values in the row
 
-  // Update the row with new data
+  // Update the row with new params
   range.setValues([[
-    data.date || values[0],
-    data.time || values[1],
-    data.pushups || values[2],
-    data.squats || values[3],
-    data.tabata ? "Yes" : "No",
+    params.date || values[0],
+    params.time || values[1],
+    params.pushups || values[2],
+    params.squats || values[3],
+    params.tabata ? "Yes" : "No",
     values[5], // Keep createdAt
     new Date().toISOString(), // Update updatedAt
   ]]);
@@ -87,12 +89,12 @@ function editWorkout(sheet, data) {
 }
 
 // === DELETE ===
-function deleteWorkout(sheet, data) {
-  if (!data.row) {
+function deleteWorkout(sheet, params) {
+  if (!params.row) {
     return ContentService.createTextOutput("Error: 'row' parameter is required for deletion.");
   }
 
-  const rowNumber = parseInt(data.row, 10);
+  const rowNumber = parseInt(params.row, 10);
   sheet.deleteRow(rowNumber);
 
   FormatDocument();
@@ -110,8 +112,8 @@ function listWorkouts(sheet) {
     if (index === 0) return null; // Skip header row
     return {
       row: index + 1, // Row number in the sheet
-      date: row[0],
-      time: row[1],
+      date: new Date(row[0]).toISOString().split("T")[0],
+      time: new Date(row[1]).toISOString().split("T")[1].split(".")[0],
       pushups: row[2],
       squats: row[3],
       tabata: row[4],
@@ -121,4 +123,23 @@ function listWorkouts(sheet) {
   }).filter(workout => workout !== null); // Remove null values (header row)
 
   return ContentService.createTextOutput(JSON.stringify(workouts));
+}
+
+// === LIST BY DATE ===
+function listWorkoutsByDate(sheet, params) {
+  const date = params.date;
+  if (!date) {
+    return ContentService.createTextOutput("Error: 'date' parameter is required for filtering.");
+  }
+
+  // Reuse listWorkouts to get all workouts
+  const allWorkouts = JSON.parse(listWorkouts(sheet).getContent());
+
+  // Filter workouts by date
+  const filteredWorkouts = allWorkouts.filter(workout => {
+    const workoutDate = new Date(workout.date).toISOString().split("T")[0]; // Convert to YYYY-MM-DD
+    return workoutDate === date;
+  });
+
+  return ContentService.createTextOutput(JSON.stringify(filteredWorkouts)).setMimeType(ContentService.MimeType.JSON);
 }

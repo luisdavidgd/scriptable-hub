@@ -1,3 +1,6 @@
+// Variables used by Scriptable.
+// These must be at the very top of the file. Do not edit.
+// icon-color: deep-brown; icon-glyph: magic;
 // === CONFIG ===
 let fm = FileManager.iCloud();
 let configFolderPath = fm.joinPath(fm.documentsDirectory(), "Config");
@@ -21,7 +24,7 @@ if (fm.fileExists(configFilePath)) {
 } else {
   console.log("Configuration file not found. Creating a new one with default values.");
   config = {
-    GOOGLE_DEPLOYMENT_ID: "AKfycbwA-otr7KxXAH-J-TGPGam4zQc1HU4AmTo8nWO6Z1SNWNxyGsYFmVUODiUVYFFQzXga",
+    GOOGLE_DEPLOYMENT_ID: "YOUR_GOOGLE_DEPLOYMENT_ID_HERE",
   };
   fm.writeString(configFilePath, JSON.stringify(config, null, 2)); // Save default config
   console.log("Default configuration file created at:", configFilePath);
@@ -31,30 +34,6 @@ if (fm.fileExists(configFilePath)) {
 const GOOGLE_SCRIPT_URL = `https://script.google.com/macros/s/${config.GOOGLE_DEPLOYMENT_ID}/exec`;
 if (!GOOGLE_SCRIPT_URL) {
   throw new Error("GOOGLE_SCRIPT_URL is missing in the configuration file.");
-}
-
-// === WORKOUT LOGGER ===
-let fileName = "workout_log.json";
-let folderPath = fm.joinPath(fm.documentsDirectory(), "Data");
-
-if (!fm.fileExists(folderPath)) {
-  fm.createDirectory(folderPath, false); // Create 'Data' folder if it doesn't exist
-}
-
-let path = fm.joinPath(folderPath, fileName);
-
-// === Load existing data ===
-let data = {};
-if (fm.fileExists(path)) {
-  await fm.downloadFileFromiCloud(path); // Ensure the file is local
-  try {
-    data = JSON.parse(fm.readString(path));
-  } catch (e) {
-    console.log("Unable to read the file. Starting a new log.");
-    data = {};
-  }
-} else {
-  console.log("File not found. A new one will be created.");
 }
 
 // === Show Menu ===
@@ -142,17 +121,32 @@ async function viewTotalReport() {
 
 // === Function to edit or delete a session ===
 async function editOrDeleteSession() {
+  let picker = new DatePicker();
+  let selectedDate = await picker.pickDate();
+  let selectedDateString = selectedDate.toISOString().slice(0, 10); // Format date as YYYY-MM-DD
+
+  let payload = {
+    action: "listByDate",
+    date: selectedDateString
+  };
+
+  // Fetch workouts for the selected date
   let req = new Request(GOOGLE_SCRIPT_URL);
   req.method = "POST";
   req.headers = { "Content-Type": "application/json" };
-  req.body = JSON.stringify({ action: "list" });
+  req.body = JSON.stringify(payload);
 
   let workouts = await req.loadJSON();
 
+  if (workouts.length === 0) {
+    console.log(`No workouts found for the selected date: ${selectedDateString}`);
+    return;
+  }
+
   let alert = new Alert();
-  alert.title = "Select a Workout";
+  alert.title = `Workouts on ${selectedDateString}`;
   workouts.forEach((workout, index) => {
-    alert.addAction(`${workout.date} ${workout.time} - Pushups: ${workout.pushups}, Squats: ${workout.squats}`);
+    alert.addAction(`${workout.time} - Pushups: ${workout.pushups}, Squats: ${workout.squats}`);
   });
   alert.addCancelAction("Cancel");
 
@@ -163,6 +157,15 @@ async function editOrDeleteSession() {
   let action = await askChoice(["Edit", "Delete"], "What would you like to do?");
 
   if (action === 0) {
+    let picker = new DatePicker();
+    picker.initialDate = new Date(selectedWorkout.date);
+    let selectedDate = await picker.pickDate();
+    let selectedDateString = selectedDate.toISOString().slice(0, 10); // Format date as YYYY-MM-DD
+
+    let timePicker = new DatePicker();
+    timePicker.initialDate = new Date(selectedWorkout.time);
+    let selectedTime = await timePicker.pickTime();
+    let selectedTimeString = selectedTime.toISOString().slice(11, 19); // Format time as HH:MM:SS
     let pushups = await askNumber("New pushups:");
     let squats = await askNumber("New squats:");
     let tabata = await askYesNo("Did you do Tabata?");
@@ -170,6 +173,8 @@ async function editOrDeleteSession() {
     let payload = {
       action: "edit",
       row: selectedWorkout.row,
+      date: selectedDateString,
+      time: selectedTimeString,
       pushups: pushups,
       squats: squats,
       tabata: tabata,

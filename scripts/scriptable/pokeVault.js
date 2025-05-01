@@ -150,45 +150,46 @@ async function main() {
     let matches = filterRows(rows, SEARCH_TERM);
     console.log(`Found ${matches.length} matches for "${SEARCH_TERM}".`);
 
-    // Format the output
-    if (matches.length === 0) {
-      console.log("No matches found.");
-      return `No results found for "${SEARCH_TERM}".`;
-    }
-
-    // Separate matches into "Already got it" and "Still missing"
-    let alreadyGotIt = [];
-    let stillMissing = [];
-
-    matches.forEach(row => {
-      const name = row[1].trim();
-      const set = row[2].trim();
-      const number = row[3].trim();
-      const quantity = parseInt(row[0].trim(), 10) || 0;
-
-      if (quantity > 0) {
-        alreadyGotIt.push(`${name} ${set}-${number} (${quantity})`);
-      } else {
-        stillMissing.push(`${name} ${set}-${number}`);
-      }
-    });
-
     // Build the output
     let output = `Search Results for "${SEARCH_TERM}":\n\n`;
 
-    if (alreadyGotIt.length > 0) {
-      output += `Already got it:\n`;
-      alreadyGotIt.forEach((item, index) => {
-        output += `${index + 1}.\t  ${item}\n`;
-      });
-      output += `\n`;
-    }
+    // Format the output
+    if (matches.length === 0) {
+      console.log("No matches found.");
+      output += `No results found for "${SEARCH_TERM}".\n`;
+    } else {
+      console.log("Matches found. Formatting output...");
+      // Separate matches into "Already got it" and "Still missing"
+      let alreadyGotIt = [];
+      let stillMissing = [];
 
-    if (stillMissing.length > 0) {
-      output += `Still missing:\n`;
-      stillMissing.forEach((item, index) => {
-        output += `${index + 1}.\t ${item}\n`;
+      matches.forEach(row => {
+        const name = row[1].trim();
+        const set = row[2].trim();
+        const number = row[3].trim();
+        const quantity = parseInt(row[0].trim(), 10) || 0;
+
+        if (quantity > 0) {
+          alreadyGotIt.push(`${name} ${set}-${number} (${quantity})`);
+        } else {
+          stillMissing.push(`${name} ${set}-${number}`);
+        }
       });
+
+      if (alreadyGotIt.length > 0) {
+        output += `Already got it:\n`;
+        alreadyGotIt.forEach((item, index) => {
+          output += `${index + 1}.\t  ${item}\n`;
+        });
+        output += `\n`;
+      }
+
+      if (stillMissing.length > 0) {
+        output += `Still missing:\n`;
+        stillMissing.forEach((item, index) => {
+          output += `${index + 1}.\t ${item}\n`;
+        });
+      }
     }
 
     // Add the file modification date at the end

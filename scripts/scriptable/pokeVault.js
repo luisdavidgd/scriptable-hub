@@ -150,6 +150,9 @@ async function main() {
     let matches = filterRows(rows, SEARCH_TERM);
     console.log(`Found ${matches.length} matches for "${SEARCH_TERM}".`);
 
+    // Build the output
+    let output = `Search Results for "${SEARCH_TERM}":\n\n`;
+
     // Format the output
     if (matches.length === 0) {
       console.log("No matches found.");

@@ -23,8 +23,6 @@ function doGet(e) {
     return readWorkouts(sheet, params);
   } else if (params.action === "listByDate") {
     return listWorkoutsByDate(sheet, params);
-  } else if (params.action === "test") {
-    return testFunction(params);
   }
 
   return ContentService.createTextOutput("Unsupported GET action");

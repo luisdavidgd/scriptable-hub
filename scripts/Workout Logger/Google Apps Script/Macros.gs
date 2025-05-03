@@ -3,7 +3,7 @@ function FormatDocument() {
     spreadsheet.getRange('A:A').activate();
     spreadsheet.getActiveRangeList().setNumberFormat('yyyy"-"mm"-"dd');
     spreadsheet.getRange('B:B').activate();
-    spreadsheet.getActiveRangeList().setNumberFormat('h":"mm":"ss');
+    spreadsheet.getActiveRangeList().setNumberFormat('h":"mm');
     spreadsheet.getRange('A1').activate();
     spreadsheet.getActiveSheet().getFilter().sort(1, false);
-  };
+};

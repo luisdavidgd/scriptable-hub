@@ -63,8 +63,8 @@ if (result === 0) {
 async function recordNewWorkout() {
   let picker = new DatePicker();
   let selectedDate = await picker.pickDate();
-  let today = selectedDate.toISOString().slice(0, 10);
-  let timeKey = selectedDate.toISOString().slice(11, 19);
+  let today = selectedDate.toISOString().split("T")[0];
+  let timeKey = selectedDate.toISOString().split("T")[1].split(".")[0];
 
   let pushups = await askNumber("How many pushups did you do?");
   let squats = await askNumber("How many squats did you do?");
@@ -123,7 +123,7 @@ async function viewTotalReport() {
 async function editOrDeleteSession() {
   let picker = new DatePicker();
   let selectedDate = await picker.pickDate();
-  let selectedDateString = selectedDate.toISOString().slice(0, 10); // Format date as YYYY-MM-DD
+  let selectedDateString = selectedDate.toISOString().split("T")[0] // Format date as YYYY-MM-DD
 
   let payload = {
     action: "listByDate",
@@ -160,12 +160,12 @@ async function editOrDeleteSession() {
     let picker = new DatePicker();
     picker.initialDate = new Date(selectedWorkout.date);
     let selectedDate = await picker.pickDate();
-    let selectedDateString = selectedDate.toISOString().slice(0, 10); // Format date as YYYY-MM-DD
+    let selectedDateString = selectedDate.toISOString().split("T")[0]; // Format date as YYYY-MM-DD
 
     let timePicker = new DatePicker();
     timePicker.initialDate = new Date(selectedWorkout.time);
     let selectedTime = await timePicker.pickTime();
-    let selectedTimeString = selectedTime.toISOString().slice(11, 19); // Format time as HH:MM:SS
+    let selectedTimeString = selectedTime.toISOString().split("T")[1].split(".")[0]; // Format time as HH:MM:SS
     let pushups = await askNumber("New pushups:");
     let squats = await askNumber("New squats:");
     let tabata = await askYesNo("Did you do Tabata?");

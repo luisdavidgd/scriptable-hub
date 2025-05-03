@@ -1,24 +1,3 @@
-function doPost(e) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Workout");
-  const params = JSON.parse(e.postData.contents);
-
-  if (params.action === "create") {
-    return createWorkout(sheet, params);
-  } else if (params.action === "read") {
-    return readWorkouts(sheet, params);
-  } else if (params.action === "edit") {
-    return editWorkout(sheet, params);
-  } else if (params.action === "delete") {
-    return deleteWorkout(sheet, params);
-  } else if (params.action === "list") {
-    return listWorkouts(sheet);
-  } else if (params.action === "listByDate") {
-    return listWorkoutsByDate(sheet, params);
-  }
-
-  return ContentService.createTextOutput("Unsupported action");
-}
-
 // === CREATE ===
 function createWorkout(sheet, params) {
   const now = new Date().toISOString();

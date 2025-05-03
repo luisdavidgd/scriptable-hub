@@ -61,7 +61,7 @@ When you run the script, you'll see the following options:
 ### Example Code
 Here’s an example of how the script interacts with Google Apps Script:
 
-```json
+```javascript
 // Add a new workout
 addWorkout({
   action: "create",

@@ -71,7 +71,7 @@ Send a POST request to the deployed web app URL with the following payload:
 
 ### Example Request in JavaScript
 
-```json
+```javascript
 const url = "YOUR_DEPLOYED_WEB_APP_URL";
 const payload = {
   action: "getCollection"

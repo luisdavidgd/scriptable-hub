@@ -62,9 +62,18 @@ if (result === 0) {
 // === Function to record a new workout ===
 async function recordNewWorkout() {
   let picker = new DatePicker();
+  picker.initialDate = new Date(); // Set the current date as the default
   let selectedDate = await picker.pickDate();
-  let today = selectedDate.toISOString().split("T")[0];
-  let timeKey = selectedDate.toISOString().split("T")[1].split(".")[0];
+
+  // Format date and time using Intl.DateTimeFormat
+  const date = formatDate(selectedDate);
+  // Add a time picker
+  let timePicker = new DatePicker();
+  timePicker.initialDate = new Date(); // Set the current time as the default
+  let selectedTime = await timePicker.pickTime();
+
+  // Format time as HH:mm
+  const time = formatTime(selectedTime);
 
   let pushups = await askNumber("How many pushups did you do?");
   let squats = await askNumber("How many squats did you do?");
@@ -72,8 +81,8 @@ async function recordNewWorkout() {
 
   let payload = {
     action: "create",
-    date: today,
-    time: timeKey,
+    date: date, // Local date
+    time: time, // Local time
     pushups: pushups,
     squats: squats,
     tabata: tabata,
@@ -89,11 +98,10 @@ async function recordNewWorkout() {
 
 // === Function to view weekly report ===
 async function viewWeeklyReport() {
-  let req = new Request(GOOGLE_SCRIPT_URL);
-  req.method = "POST";
-  req.headers = { "Content-Type": "application/json" };
-  req.body = JSON.stringify({ action: "list" });
+  const url = `${GOOGLE_SCRIPT_URL}?action=list`;
 
+  let req = new Request(url);
+  req.method = "GET";
   let workouts = await req.loadJSON();
   let weeklySummary = getWeeklySummary(workouts);
 
@@ -105,11 +113,10 @@ async function viewWeeklyReport() {
 
 // === Function to view total report ===
 async function viewTotalReport() {
-  let req = new Request(GOOGLE_SCRIPT_URL);
-  req.method = "POST";
-  req.headers = { "Content-Type": "application/json" };
-  req.body = JSON.stringify({ action: "list" });
+  const url = `${GOOGLE_SCRIPT_URL}?action=list`;
 
+  let req = new Request(url);
+  req.method = "GET";
   let workouts = await req.loadJSON();
   let totalSummary = getTotalSummary(workouts);
 
@@ -123,19 +130,13 @@ async function viewTotalReport() {
 async function editOrDeleteSession() {
   let picker = new DatePicker();
   let selectedDate = await picker.pickDate();
-  let selectedDateString = selectedDate.toISOString().split("T")[0] // Format date as YYYY-MM-DD
+  let selectedDateString = formatDate(selectedDate); // Format date as YYYY-MM-DD
 
-  let payload = {
-    action: "listByDate",
-    date: selectedDateString
-  };
+  const url = `${GOOGLE_SCRIPT_URL}?action=listByDate&date=${encodeURIComponent(selectedDateString)}`;
 
   // Fetch workouts for the selected date
-  let req = new Request(GOOGLE_SCRIPT_URL);
-  req.method = "POST";
-  req.headers = { "Content-Type": "application/json" };
-  req.body = JSON.stringify(payload);
-
+  let req = new Request(url);
+  req.method = "GET"; // Use GET instead of POST
   let workouts = await req.loadJSON();
 
   if (workouts.length === 0) {
@@ -158,16 +159,17 @@ async function editOrDeleteSession() {
 
   if (action === 0) {
     let picker = new DatePicker();
-    picker.initialDate = new Date(selectedWorkout.date);
+    picker.initialDate = createLocalDate(selectedWorkout.date);
     let selectedDate = await picker.pickDate();
-    let selectedDateString = selectedDate.toISOString().split("T")[0]; // Format date as YYYY-MM-DD
+    let selectedDateString = formatDate(selectedDate);
 
     let timePicker = new DatePicker();
-    timePicker.initialDate = new Date(selectedWorkout.time);
+    timePicker.initialDate = new Date(`${selectedWorkout.date}T${selectedWorkout.time}`);
     let selectedTime = await timePicker.pickTime();
-    let selectedTimeString = selectedTime.toISOString().split("T")[1].split(".")[0]; // Format time as HH:MM:SS
-    let pushups = await askNumber("New pushups:");
-    let squats = await askNumber("New squats:");
+    let selectedTimeString = formatTime(selectedTime);
+
+    let pushups = await askNumber("New pushups:", selectedWorkout.pushups);
+    let squats = await askNumber("New squats:", selectedWorkout.squats);
     let tabata = await askYesNo("Did you do Tabata?");
 
     let payload = {
@@ -187,6 +189,7 @@ async function editOrDeleteSession() {
     let res = await req.loadString();
     console.log("Google Sheets response: " + res);
   } else {
+    // Delete the selected workout
     let payload = {
       action: "delete",
       row: selectedWorkout.row,
@@ -236,13 +239,27 @@ function getTotalSummary(workouts) {
   return { totalPushups, totalSquats, totalTabata };
 }
 
-async function askNumber(question) {
-  let alert = new Alert();
-  alert.title = question;
-  alert.addTextField("Enter a number", "");
-  alert.addAction("OK");
-  await alert.present();
-  return parseInt(alert.textFieldValue(0)) || 0;
+async function askNumber(question, defaultValue = "") {
+  while (true) {
+    let alert = new Alert();
+    alert.title = question;
+    alert.addTextField("Enter a number", defaultValue.toString());
+    alert.addAction("OK");
+    await alert.present();
+
+    let input = alert.textFieldValue(0);
+    let number = parseInt(input);
+
+    if (!isNaN(number)) {
+      return number; // Return the valid number
+    } else {
+      let errorAlert = new Alert();
+      errorAlert.title = "Invalid Input";
+      errorAlert.message = "Please enter a valid number.";
+      errorAlert.addAction("OK");
+      await errorAlert.present();
+    }
+  }
 }
 
 async function askYesNo(question) {
@@ -260,4 +277,19 @@ async function askChoice(choices, question) {
   choices.forEach(choice => alert.addAction(choice));
   let result = await alert.present();
   return result;
+}
+
+function formatDate(date) {
+  const options = { year: "numeric", month: "2-digit", day: "2-digit" };
+  return new Intl.DateTimeFormat("en-CA", options).format(date); // Format as YYYY-MM-DD
+}
+
+function formatTime(date) {
+  const options = { hour: "2-digit", minute: "2-digit", hour12: false };
+  return new Intl.DateTimeFormat("en-CA", options).format(date); // Format as HH:mm
+}
+
+function createLocalDate(dateString) {
+  const [year, month, day] = dateString.split("-").map(Number);
+  return new Date(year, month - 1, day); // Months are 0-indexed in JavaScript
 }

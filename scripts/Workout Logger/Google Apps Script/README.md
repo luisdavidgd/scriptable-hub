@@ -73,7 +73,7 @@ Send a POST request to the deployed web app URL with the following payload:
 ```json
 {
   "action": "edit",
-  "row": "row-number-here", // 8
+  "row": "row-number-here",
   "pushups": 25
 }
 ```
@@ -84,7 +84,7 @@ Send a POST request to the deployed web app URL with the following payload:
 ```json
 {
   "action": "delete",
-  "row": "row-number-here", // 11
+  "row": "row-number-here",
 }
 ```
 

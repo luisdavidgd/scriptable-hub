@@ -91,8 +91,8 @@ function listWorkouts(sheet) {
     if (index === 0) return null; // Skip header row
     return {
       row: index + 1, // Row number in the sheet
-      date: new Date(row[0]).toISOString().split("T")[0],
-      time: new Date(row[1]).toISOString().split("T")[1].split(".")[0],
+      date: Utilities.formatDate(new Date(row[0]), Session.getScriptTimeZone(), "yyyy-MM-dd"), // Format date as YYYY-MM-DD
+      time: Utilities.formatDate(new Date(row[1]), Session.getScriptTimeZone(), "HH:mm"), // Format time as HH:mm
       pushups: row[2],
       squats: row[3],
       tabata: row[4],

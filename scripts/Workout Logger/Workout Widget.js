@@ -33,33 +33,47 @@ if (!GOOGLE_SCRIPT_URL) {
 }
 
 // === Fetch Weekly Report ===
-async function fetchWeeklyReport() {
+async function fetchWeeklyWorkouts() {
   const url = `${GOOGLE_SCRIPT_URL}?action=list`;
-  const workouts = await sendRequest(url, "GET");
-  return getWeeklySummary(workouts);
+  return await sendRequest(url, "GET");
+}
+
+async function fetchAllWorkouts() {
+  const url = `${GOOGLE_SCRIPT_URL}?action=list`;
+  return await sendRequest(url, "GET");
 }
 
 // === Create Widget ===
-async function createWidget() {
-  const weeklySummary = await fetchWeeklyReport();
+async function createWidget(reportType = "weekly") {
+  let summary;
+
+  if (reportType === "total") {
+    const workouts = await fetchAllWorkouts();
+    summary = getTotalSummary(workouts);
+  } else {
+    const workouts = await fetchWeeklyWorkouts();
+    summary = getWeeklySummary(workouts);
+  }
 
   let widget = new ListWidget();
   widget.backgroundColor = new Color("#1a1a1a");
 
-  let title = widget.addText("Weekly Report 🏋️‍♂️");
+  let title = widget.addText(
+    reportType === "total" ? "Total Report 🏋️‍♂️" : "Weekly Report 🏋️‍♂️"
+  );
   title.font = Font.boldSystemFont(16);
   title.textColor = Color.white();
   widget.addSpacer(8);
 
-  let pushups = widget.addText(`Pushups: ${weeklySummary.totalPushups}`);
+  let pushups = widget.addText(`Pushups: ${summary.totalPushups}`);
   pushups.font = Font.systemFont(14);
   pushups.textColor = Color.white();
 
-  let squats = widget.addText(`Squats: ${weeklySummary.totalSquats}`);
+  let squats = widget.addText(`Squats: ${summary.totalSquats}`);
   squats.font = Font.systemFont(14);
   squats.textColor = Color.white();
 
-  let tabata = widget.addText(`Tabata: ${weeklySummary.totalTabata}`);
+  let tabata = widget.addText(`Tabata: ${summary.totalTabata}`);
   tabata.font = Font.systemFont(14);
   tabata.textColor = Color.white();
 
@@ -70,7 +84,7 @@ async function createWidget() {
   footer.textColor = Color.gray();
 
   // Set the widget to refresh after 15 minutes
-  widget.refreshAfterDate = new Date(Date.now() + 1 * 60 * 1000);
+  widget.refreshAfterDate = new Date(Date.now() + 15 * 60 * 1000);
 
   return widget;
 }
@@ -96,6 +110,20 @@ function getWeeklySummary(workouts) {
   return { totalPushups, totalSquats, totalTabata };
 }
 
+function getTotalSummary(workouts) {
+  let totalPushups = 0;
+  let totalSquats = 0;
+  let totalTabata = 0;
+
+  workouts.forEach(workout => {
+    totalPushups += workout.pushups;
+    totalSquats += workout.squats;
+    if (workout.tabata === "Yes") totalTabata++;
+  });
+
+  return { totalPushups, totalSquats, totalTabata };
+}
+
 async function sendRequest(url, method = "GET", payload = null) {
   let req = new Request(url);
   req.method = method;
@@ -107,11 +135,13 @@ async function sendRequest(url, method = "GET", payload = null) {
 }
 
 // === Run Script ===
+const reportType = args.widgetParameter || "weekly"; // Default to "weekly"
+
 if (config.runsInWidget) {
-  let widget = await createWidget();
+  let widget = await createWidget(reportType);
   Script.setWidget(widget);
   Script.complete();
 } else {
-  let widget = await createWidget();
+  let widget = await createWidget(reportType);
   widget.presentMedium();
 }

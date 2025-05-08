@@ -36,44 +36,62 @@ if (!GOOGLE_SCRIPT_URL) {
   throw new Error("GOOGLE_SCRIPT_URL is missing in the configuration file.");
 }
 
-// === Show Menu ===
-let alert = new Alert();
-alert.title = "Workout Tracker";
-alert.message = "Choose an option";
-alert.addAction("Record New Workout");
-alert.addAction("View Weekly Report");
-alert.addAction("View Total Report");
-alert.addAction("Edit or Delete a Session");
-alert.addCancelAction("Cancel");
+// === Main Menu ===
+async function mainMenu() {
+  while (true) {
+    let result = await showDialog(
+      "Workout Logger 🏋️‍♂️",
+      "What would you like to do?",
+      ["Record New Workout", "View Weekly Report", "View Total Report", "Edit or Delete a Session"],
+      true // Include "Exit" option
+    );
 
-let result = await alert.present();
+    if (result === null) {
+      console.log("Exiting Workout Logger...");
+      return;
+    }
 
-// === Actions based on selected option ===
-if (result === 0) {
-  await recordNewWorkout();
-} else if (result === 1) {
-  await viewWeeklyReport();
-} else if (result === 2) {
-  await viewTotalReport();
-} else if (result === 3) {
-  await editOrDeleteSession();
+    let shouldExit = false;
+
+    if (result === 0) shouldExit = await recordNewWorkout();
+    else if (result === 1) shouldExit = await viewWeeklyReport();
+    else if (result === 2) shouldExit = await viewTotalReport();
+    else if (result === 3) shouldExit = await editOrDeleteSession();
+
+    if (shouldExit) {
+      console.log("User chose to exit.");
+      break; // Exit the loop explicitly
+    }
+  }
+}
+
+// === Show Dialog ===
+async function showDialog(title, message, options = ["OK"], includeExit = false) {
+  let alert = new Alert();
+  alert.title = title;
+  alert.message = message;
+
+  // Add the main options
+  options.forEach(option => alert.addAction(option));
+
+  // Optionally include an "Exit" button
+  if (includeExit) {
+    alert.addCancelAction("Exit");
+  }
+
+  let result = await alert.present();
+
+  // Return the index of the selected action, or null if "Exit" is selected
+  return result === -1 ? null : result;
 }
 
 // === Function to record a new workout ===
 async function recordNewWorkout() {
-  let picker = new DatePicker();
-  picker.initialDate = new Date(); // Set the current date as the default
-  let selectedDate = await picker.pickDate();
+  let selectedDate = await pickDate(new Date());
+  let date = DateUtils.formatDate(selectedDate);
 
-  // Format date and time using Intl.DateTimeFormat
-  const date = formatDate(selectedDate);
-  // Add a time picker
-  let timePicker = new DatePicker();
-  timePicker.initialDate = new Date(); // Set the current time as the default
-  let selectedTime = await timePicker.pickTime();
-
-  // Format time as HH:mm
-  const time = formatTime(selectedTime);
+  let selectedTime = await pickTime(new Date());
+  let time = DateUtils.formatTime(selectedTime);
 
   let pushups = await askNumber("How many pushups did you do?");
   let squats = await askNumber("How many squats did you do?");
@@ -88,56 +106,63 @@ async function recordNewWorkout() {
     tabata: tabata,
   };
 
-  let req = new Request(GOOGLE_SCRIPT_URL);
-  req.method = "POST";
-  req.headers = { "Content-Type": "application/json" };
-  req.body = JSON.stringify(payload);
-  let res = await req.loadString();
-  console.log("Google Sheets response: " + res);
+  let response = await sendRequest(GOOGLE_SCRIPT_URL, "POST", payload, "text");
+  console.log("Google Sheets response: " + response);
+
+  // Show success alert with "Exit" option
+  let result = await showDialog("Success!", response, ["OK"], true);
+
+  return result === null; // Return true if the user chose "Exit"
 }
 
 // === Function to view weekly report ===
 async function viewWeeklyReport() {
-  const url = `${GOOGLE_SCRIPT_URL}?action=list`;
-
-  let req = new Request(url);
-  req.method = "GET";
-  let workouts = await req.loadJSON();
+  let workouts = await sendRequest(`${GOOGLE_SCRIPT_URL}?action=list`);
   let weeklySummary = getWeeklySummary(workouts);
 
   console.log(`Weekly Report:`);
   console.log(`Total pushups this week: ${weeklySummary.totalPushups}`);
   console.log(`Total squats this week: ${weeklySummary.totalSquats}`);
   console.log(`Total Tabata sessions this week: ${weeklySummary.totalTabata}`);
+
+  // Show weekly report alert with "Exit" option
+  let result = await showDialog(
+    "Weekly Report",
+    `Pushups: ${weeklySummary.totalPushups}\nSquats: ${weeklySummary.totalSquats}\nTabata: ${weeklySummary.totalTabata}`,
+    ["OK"],
+    true // Include "Exit" option
+  );
+
+  return result === null; // Return true if the user chose "Exit"
 }
 
 // === Function to view total report ===
 async function viewTotalReport() {
-  const url = `${GOOGLE_SCRIPT_URL}?action=list`;
-
-  let req = new Request(url);
-  req.method = "GET";
-  let workouts = await req.loadJSON();
+  let workouts = await sendRequest(`${GOOGLE_SCRIPT_URL}?action=list`);
   let totalSummary = getTotalSummary(workouts);
 
   console.log(`Total Report:`);
   console.log(`Total pushups: ${totalSummary.totalPushups}`);
   console.log(`Total squats: ${totalSummary.totalSquats}`);
   console.log(`Total Tabata sessions: ${totalSummary.totalTabata}`);
+
+  // Show success alert with "Exit" option
+  let result = await showDialog(
+    "Total Report",
+    `Pushups: ${totalSummary.totalPushups}\nSquats: ${totalSummary.totalSquats}\nTabata: ${totalSummary.totalTabata}`,
+    ["OK"],
+    true
+  );
+
+  return result === null; // Return true if the user chose "Exit"
 }
 
 // === Function to edit or delete a session ===
 async function editOrDeleteSession() {
-  let picker = new DatePicker();
-  let selectedDate = await picker.pickDate();
-  let selectedDateString = formatDate(selectedDate); // Format date as YYYY-MM-DD
+  let selectedDate = await pickDate(new Date());
+  let selectedDateString = DateUtils.formatDate(selectedDate); // Format date as YYYY-MM-DD
 
-  const url = `${GOOGLE_SCRIPT_URL}?action=listByDate&date=${encodeURIComponent(selectedDateString)}`;
-
-  // Fetch workouts for the selected date
-  let req = new Request(url);
-  req.method = "GET"; // Use GET instead of POST
-  let workouts = await req.loadJSON();
+  let workouts = await sendRequest(`${GOOGLE_SCRIPT_URL}?action=listByDate&date=${encodeURIComponent(selectedDateString)}`);
 
   if (workouts.length === 0) {
     console.log(`No workouts found for the selected date: ${selectedDateString}`);
@@ -158,15 +183,12 @@ async function editOrDeleteSession() {
   let action = await askChoice(["Edit", "Delete"], "What would you like to do?");
 
   if (action === 0) {
-    let picker = new DatePicker();
-    picker.initialDate = createLocalDate(selectedWorkout.date);
-    let selectedDate = await picker.pickDate();
-    let selectedDateString = formatDate(selectedDate);
+    // Edit the selected workout
+    let selectedDate = await pickDate(DateUtils.createLocalDate(selectedWorkout.date));
+    let selectedDateString = DateUtils.formatDate(selectedDate);
 
-    let timePicker = new DatePicker();
-    timePicker.initialDate = new Date(`${selectedWorkout.date}T${selectedWorkout.time}`);
-    let selectedTime = await timePicker.pickTime();
-    let selectedTimeString = formatTime(selectedTime);
+    let selectedTime = await pickTime(new Date(`${selectedWorkout.date}T${selectedWorkout.time}`));
+    let selectedTimeString = DateUtils.formatTime(selectedTime);
 
     let pushups = await askNumber("New pushups:", selectedWorkout.pushups);
     let squats = await askNumber("New squats:", selectedWorkout.squats);
@@ -182,12 +204,13 @@ async function editOrDeleteSession() {
       tabata: tabata,
     };
 
-    let req = new Request(GOOGLE_SCRIPT_URL);
-    req.method = "POST";
-    req.headers = { "Content-Type": "application/json" };
-    req.body = JSON.stringify(payload);
-    let res = await req.loadString();
-    console.log("Google Sheets response: " + res);
+    let response = await sendRequest(GOOGLE_SCRIPT_URL, "POST", payload, "text");
+    console.log("Google Sheets response: " + response);
+
+    // Show success alert with "Exit" option
+    let result = await showDialog("Success!", response, ["OK"], true);
+
+    return result === null; // Return true if the user chose "Exit"
   } else {
     // Delete the selected workout
     let payload = {
@@ -195,12 +218,13 @@ async function editOrDeleteSession() {
       row: selectedWorkout.row,
     };
 
-    let req = new Request(GOOGLE_SCRIPT_URL);
-    req.method = "POST";
-    req.headers = { "Content-Type": "application/json" };
-    req.body = JSON.stringify(payload);
-    let res = await req.loadString();
-    console.log("Google Sheets response: " + res);
+    let response = await sendRequest(GOOGLE_SCRIPT_URL, "POST", payload, "text");
+    console.log("Google Sheets response: " + response);
+
+    // Show success alert with "Exit" option
+    let result = await showDialog("Success!", response, ["OK"], true);
+
+    return result === null; // Return true if the user chose "Exit"
   }
 }
 
@@ -279,17 +303,51 @@ async function askChoice(choices, question) {
   return result;
 }
 
-function formatDate(date) {
-  const options = { year: "numeric", month: "2-digit", day: "2-digit" };
-  return new Intl.DateTimeFormat("en-CA", options).format(date); // Format as YYYY-MM-DD
+const DateUtils = {
+  formatDate(date) {
+    const options = { year: "numeric", month: "2-digit", day: "2-digit" };
+    return new Intl.DateTimeFormat("en-CA", options).format(date); // Format as YYYY-MM-DD
+  },
+
+  formatTime(date) {
+    const options = { hour: "2-digit", minute: "2-digit", hour12: false };
+    return new Intl.DateTimeFormat("en-CA", options).format(date); // Format as HH:mm
+  },
+
+  createLocalDate(dateString) {
+    const [year, month, day] = dateString.split("-").map(Number);
+    return new Date(year, month - 1, day); // Months are 0-indexed in JavaScript
+  }
+};
+
+async function pickDate(initialDate = new Date()) {
+  let picker = new DatePicker();
+  picker.initialDate = initialDate;
+  return await picker.pickDate();
 }
 
-function formatTime(date) {
-  const options = { hour: "2-digit", minute: "2-digit", hour12: false };
-  return new Intl.DateTimeFormat("en-CA", options).format(date); // Format as HH:mm
+async function pickTime(initialDate = new Date()) {
+  let picker = new DatePicker();
+  picker.initialDate = initialDate;
+  return await picker.pickTime();
 }
 
-function createLocalDate(dateString) {
-  const [year, month, day] = dateString.split("-").map(Number);
-  return new Date(year, month - 1, day); // Months are 0-indexed in JavaScript
+async function sendRequest(url, method = "GET", payload = null, responseType = "json") {
+  let req = new Request(url);
+  req.method = method;
+  if (payload) {
+    req.headers = { "Content-Type": "application/json" };
+    req.body = JSON.stringify(payload);
+  }
+
+  if (responseType === "json") {
+    return await req.loadJSON();
+  } else if (responseType === "text") {
+    return await req.loadString();
+  } else {
+    throw new Error("Unsupported response type: " + responseType);
+  }
 }
+
+// Call the main menu to start the app
+await mainMenu();

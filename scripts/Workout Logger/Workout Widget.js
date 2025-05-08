@@ -56,32 +56,38 @@ async function createWidget(reportType = "weekly") {
   }
 
   let widget = new ListWidget();
-  widget.backgroundColor = new Color("#1a1a1a");
+
+  // Define dynamic colors for light and dark mode
+  const backgroundColor = Color.dynamic(new Color("#ffffff"), new Color("#1a1a1a")); // Light: white, Dark: dark gray
+  const textColor = Color.dynamic(new Color("#000000"), new Color("#ffffff")); // Light: black, Dark: white
+  const footerColor = Color.dynamic(new Color("#555555"), new Color("#aaaaaa")); // Light: gray, Dark: light gray
+
+  widget.backgroundColor = backgroundColor;
 
   let title = widget.addText(
     reportType === "total" ? "Total Report 🏋️‍♂️" : "Weekly Report 🏋️‍♂️"
   );
   title.font = Font.boldSystemFont(16);
-  title.textColor = Color.white();
+  title.textColor = textColor;
   widget.addSpacer(8);
 
   let pushups = widget.addText(`Pushups: ${summary.totalPushups}`);
   pushups.font = Font.systemFont(14);
-  pushups.textColor = Color.white();
+  pushups.textColor = textColor;
 
   let squats = widget.addText(`Squats: ${summary.totalSquats}`);
   squats.font = Font.systemFont(14);
-  squats.textColor = Color.white();
+  squats.textColor = textColor;
 
   let tabata = widget.addText(`Tabata: ${summary.totalTabata}`);
   tabata.font = Font.systemFont(14);
-  tabata.textColor = Color.white();
+  tabata.textColor = textColor;
 
   widget.addSpacer();
 
   let footer = widget.addText("Workout Logger");
   footer.font = Font.italicSystemFont(10);
-  footer.textColor = Color.gray();
+  footer.textColor = footerColor;
 
   // Set the widget to refresh after 15 minutes
   widget.refreshAfterDate = new Date(Date.now() + 15 * 60 * 1000);

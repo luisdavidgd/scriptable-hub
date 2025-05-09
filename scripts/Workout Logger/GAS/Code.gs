@@ -1,14 +1,14 @@
-const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Workout");
-
 function doPost(e) {
   const params = JSON.parse(e.postData.contents);
+  const year = Utils.getYearFromParams(params);
+  const sheet = Utils.getSpreadsheetByYear(year);
 
   if (params.action === "create") {
-    return createWorkout(sheet, params);
+    return Crud.createWorkout(sheet, params);
   } else if (params.action === "edit") {
-    return editWorkout(sheet, params);
+    return Crud.editWorkout(sheet, params);
   } else if (params.action === "delete") {
-    return deleteWorkout(sheet, params);
+    return Crud.deleteWorkout(sheet, params);
   }
 
   return ContentService.createTextOutput("Unsupported POST action");
@@ -16,13 +16,15 @@ function doPost(e) {
 
 function doGet(e) {
   var params = JSON.parse(JSON.stringify(e.parameter));
+  const year = Utils.getYearFromParams(params);
+  const sheet = Utils.getSpreadsheetByYear(year);
 
   if (params.action === "list") {
-    return listWorkouts(sheet, params);
+    return Crud.listWorkouts(sheet, params);
   } else if (params.action === "read") {
-    return readWorkouts(sheet, params);
+    return Crud.readWorkouts(sheet, params);
   } else if (params.action === "listByDate") {
-    return listWorkoutsByDate(sheet, params);
+    return Crud.listWorkoutsByDate(sheet, params);
   }
 
   return ContentService.createTextOutput("Unsupported GET action");

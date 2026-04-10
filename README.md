@@ -54,5 +54,3 @@ scriptable-hub/
 
 ### 📄 License
 MIT — Free to use, modify, and share. Credit is appreciated!
-
-
